@@ -4,6 +4,7 @@ import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AdvertiserModule } from './Advertisers/advertiser.module';
+import { AdvertiserProfilesModule } from './advertiser_profiles/advertiser_profiles.module';
 
 @Module({
   imports: [
@@ -23,7 +24,8 @@ import { AdvertiserModule } from './Advertisers/advertiser.module';
         logging: true,
       })
     }),
-    AdvertiserModule
+    AdvertiserModule,
+    AdvertiserProfilesModule
   ],
   controllers: [AppController],
   providers: [AppService],
