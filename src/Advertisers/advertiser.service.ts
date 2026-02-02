@@ -1,0 +1,73 @@
+import { Injectable, NotAcceptableException } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
+import { Advertiser } from "./Entity/advertiser.entity";
+import { hashPassword } from "src/Common/Utils/password.utils";
+
+@Injectable()
+export class AdvertiserService {
+    constructor(
+        @InjectRepository(Advertiser)
+        private advertiserRepository: Repository<Advertiser>,
+    ) {}
+
+    async createAdvertiser(advertiserData: Partial<Advertiser>): Promise<Advertiser> {
+        try {
+            if (advertiserData.password) {
+                advertiserData.password = await hashPassword(advertiserData.password);
+            }
+            const advertiser = this.advertiserRepository.create(advertiserData);
+            return await this.advertiserRepository.save(advertiser);
+        } catch (error) {
+            throw new NotAcceptableException(error.message);
+        }
+    }
+
+    async findAdvertiserList(): Promise<Advertiser[]> {
+        try {
+            return await this.advertiserRepository.find();
+        } catch (error) {
+            throw new NotAcceptableException(error.message);
+        }
+    }
+
+    async findAdvertiserById(id: string): Promise<Advertiser> {
+        try {
+            const advertiser = await this.advertiserRepository.findOneBy({ id });
+            if (!advertiser) {
+                throw new NotAcceptableException("Advertiser not found");
+            }
+            return advertiser;
+        } catch (error) {
+            throw new NotAcceptableException(error.message);
+        }
+    }
+
+    async updateAdvertiser(id: string, updateData: Partial<Advertiser>): Promise<Advertiser> {
+        try {
+            const advertiser = await this.findAdvertiserById(id);
+            if (!advertiser) {
+                throw new NotAcceptableException("Advertiser not found");
+            }
+            if (updateData.password) {
+                updateData.password = await hashPassword(updateData.password);
+            }
+            Object.assign(advertiser, updateData);
+            return await this.advertiserRepository.save(advertiser);
+        } catch (error) {
+            throw new NotAcceptableException(error.message);
+        }
+    }
+
+    async deleteAdvertiser(id: string): Promise<Advertiser> {
+        try {
+            const advertiser = await this.findAdvertiserById(id);
+            if (!advertiser) {
+                throw new NotAcceptableException("Advertiser not found");
+            }
+            return await this.advertiserRepository.remove(advertiser);
+        } catch (error) {
+            throw new NotAcceptableException(error.message);
+        }
+    }
+}
