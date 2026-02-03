@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
-import { AdvertiserProfilesService } from './advertiser_profiles.service';
-import { CreateAdvertiserProfileDto } from './dto/create-advertiser_profile.dto';
-import { UpdateAdvertiserProfileDto } from './dto/update-advertiser_profile.dto';
+import { AdvertiserProfilesService } from './advertiser-profiles.service';
+import { CreateAdvertiserProfileDto } from './dto/create-advertiser-profile.dto';
+import { UpdateAdvertiserProfileDto } from './dto/update-advertiser-profile.dto';
 
 @Controller('advertiser-profiles')
 export class AdvertiserProfilesController {

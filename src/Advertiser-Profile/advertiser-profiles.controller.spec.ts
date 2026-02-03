@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AdvertiserProfilesController } from './advertiser_profiles.controller';
-import { AdvertiserProfilesService } from './advertiser_profiles.service';
+import { AdvertiserProfilesController } from './advertiser-profiles.controller';
+import { AdvertiserProfilesService } from './advertiser-profiles.service';
 
 describe('AdvertiserProfilesController', () => {
   let controller: AdvertiserProfilesController;

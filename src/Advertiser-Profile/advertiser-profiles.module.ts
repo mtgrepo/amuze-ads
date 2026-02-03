@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
-import { AdvertiserProfilesService } from './advertiser_profiles.service';
-import { AdvertiserProfilesController } from './advertiser_profiles.controller';
+import { AdvertiserProfilesService } from './advertiser-profiles.service';
+import { AdvertiserProfilesController } from './advertiser-profiles.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AdvertiserProfile } from './entities/advertiser_profile.entity';
+import { AdvertiserProfile } from './entities/advertiser-profile.entity';
 
 @Module({
     imports: [

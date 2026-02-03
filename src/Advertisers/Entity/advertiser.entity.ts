@@ -6,7 +6,7 @@ import {
   UpdateDateColumn,
   OneToMany,
 } from 'typeorm';
-import { AdvertiserProfile } from '../../advertiser_profiles/entities/advertiser_profile.entity';
+import { AdvertiserProfile } from '../../Advertiser-Profile/entities/advertiser-profile.entity';
 
 @Entity('advertisers')
 export class Advertiser {

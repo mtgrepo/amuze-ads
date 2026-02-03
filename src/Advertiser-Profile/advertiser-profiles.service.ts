@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { CreateAdvertiserProfileDto } from './dto/create-advertiser_profile.dto';
-import { UpdateAdvertiserProfileDto } from './dto/update-advertiser_profile.dto';
-import { AdvertiserProfile } from './entities/advertiser_profile.entity';
+import { CreateAdvertiserProfileDto } from './dto/create-advertiser-profile.dto';
+import { UpdateAdvertiserProfileDto } from './dto/update-advertiser-profile.dto';
+import { AdvertiserProfile } from './entities/advertiser-profile.entity';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 

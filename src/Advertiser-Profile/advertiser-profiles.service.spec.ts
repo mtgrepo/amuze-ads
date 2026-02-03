@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AdvertiserProfilesService } from './advertiser_profiles.service';
+import { AdvertiserProfilesService } from './advertiser-profiles.service';
 
 describe('AdvertiserProfilesService', () => {
   let service: AdvertiserProfilesService;
