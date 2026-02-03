@@ -1,12 +1,14 @@
 import { Controller, Get, Post, Body, Patch, Delete, Param } from '@nestjs/common';
 import { AdvertiserService } from './advertiser.service';
+import { CreateAdvertiserDTO } from './dto/create-advertiser.dto';
+import { UpdateAdvertiserDTO } from './dto/update-advertiser.dto';
 
 @Controller('advertisers')
 export class AdvertiserController {
     constructor(private readonly advertiserService: AdvertiserService) {}
 
     @Post()
-    async create(@Body() advertiserData: any) {
+    async create(@Body() advertiserData: CreateAdvertiserDTO) {
         const advertiser = await this.advertiserService.createAdvertiser(advertiserData);
         return {
             data: advertiser,
@@ -33,7 +35,7 @@ export class AdvertiserController {
     }
 
     @Patch(':id/update')
-    async update(@Param('id') id: string, @Body() updateData: any) {
+    async update(@Param('id') id: string, @Body() updateData: UpdateAdvertiserDTO) {
         const advertiser = await this.advertiserService.updateAdvertiser(id, updateData);
         return {
             data: advertiser,

@@ -1,8 +1,8 @@
 import { Injectable, NotAcceptableException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
-import { Advertiser } from "./Entity/advertiser.entity";
-import { hashPassword } from "src/Common/Utils/password.utils";
+import { Advertiser } from "./entities/advertiser.entity";
+import { hashPassword } from "src/common/utils/password.utils";
 
 @Injectable()
 export class AdvertiserService {
