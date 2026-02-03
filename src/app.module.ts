@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AdvertiserModule } from './advertisers/advertiser.module';
 import { AdvertiserProfilesModule } from './advertiser_profiles/advertiser_profiles.module';
+import { AdminUserModule } from './admin-users/admin-user.module';
 
 @Module({
   imports: [
@@ -25,7 +26,8 @@ import { AdvertiserProfilesModule } from './advertiser_profiles/advertiser_profi
       })
     }),
     AdvertiserModule,
-    AdvertiserProfilesModule
+    AdvertiserProfilesModule,
+    AdminUserModule,
   ],
   controllers: [AppController],
   providers: [AppService],
