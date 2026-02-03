@@ -59,6 +59,14 @@ export class AdminUserService {
         }
     }
 
+    async findAdminUserByEmail(email: string): Promise<AdminUser | null> {
+        try {
+            return await this.adminUserRepository.findOneBy({ email });
+        } catch (error) {
+            throw new NotAcceptableException(error.message);
+        }
+    }
+
     async deleteAdminUser(id: string): Promise<AdminUser> {
         try {
             const adminUser = await this.findAdminUserById(id);

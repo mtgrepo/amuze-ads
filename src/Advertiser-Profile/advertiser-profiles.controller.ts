@@ -1,8 +1,10 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
 import { AdvertiserProfilesService } from './advertiser-profiles.service';
 import { CreateAdvertiserProfileDto } from './dto/create-advertiser-profile.dto';
 import { UpdateAdvertiserProfileDto } from './dto/update-advertiser-profile.dto';
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 
+@UseGuards(JwtAuthGuard)
 @Controller('advertiser-profiles')
 export class AdvertiserProfilesController {
   constructor(private readonly advertiserProfilesService: AdvertiserProfilesService) {}

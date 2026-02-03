@@ -6,6 +6,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AdvertiserModule } from './advertisers/advertiser.module';
 import { AdminUserModule } from './admin-users/admin-user.module';
 import { AdvertiserProfilesModule } from './advertiser-profile/advertiser-profiles.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { AdvertiserProfilesModule } from './advertiser-profile/advertiser-profil
     AdvertiserModule,
     AdvertiserProfilesModule,
     AdminUserModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
