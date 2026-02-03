@@ -1,5 +1,5 @@
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
-import { Advertiser } from "../../Advertisers/Entity/advertiser.entity";
+import { Advertiser } from "../../advertisers/entity/advertiser.entity";
 
 @Entity('advertiser_profiles')
 export class AdvertiserProfile {

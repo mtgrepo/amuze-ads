@@ -3,7 +3,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { AdvertiserModule } from './Advertisers/advertiser.module';
+import { AdvertiserModule } from './advertisers/advertiser.module';
 import { AdvertiserProfilesModule } from './advertiser_profiles/advertiser_profiles.module';
 
 @Module({

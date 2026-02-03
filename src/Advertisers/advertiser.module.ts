@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { Advertiser } from "./Entity/advertiser.entity";
+import { Advertiser } from "./entity/advertiser.entity";
 import { AdvertiserService } from "./advertiser.service";
 import { AdvertiserController } from "./advertiser.controller";
 
