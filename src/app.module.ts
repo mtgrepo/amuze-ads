@@ -7,6 +7,7 @@ import { AdvertiserModule } from './advertisers/advertiser.module';
 import { AdminUserModule } from './admin-users/admin-user.module';
 import { AdvertiserProfilesModule } from './advertiser-profile/advertiser-profiles.module';
 import { AuthModule } from './auth/auth.module';
+import { MinioModule } from './minio/minio.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { AuthModule } from './auth/auth.module';
         logging: true,
       })
     }),
+    MinioModule,
     AdvertiserModule,
     AdvertiserProfilesModule,
     AdminUserModule,
