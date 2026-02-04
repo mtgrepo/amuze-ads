@@ -21,7 +21,8 @@ export class AdvertiserProfilesController {
     @Body() createAdvertiserProfileDto: CreateAdvertiserProfileDto,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    const fileName = await this.minioService.upload(file, 'advertiser-profiles');
+    const folder = `advertiser-profiles/${createAdvertiserProfileDto.business_name}`;
+    const fileName = await this.minioService.upload(file, folder);
 
     const advertiserProfile = await this.advertiserProfilesService.createAdvertiserProfile(
       createAdvertiserProfileDto,
@@ -80,7 +81,9 @@ export class AdvertiserProfilesController {
       if (oldProfile.photo) {
         await this.minioService.delete(oldProfile.photo);
       }
-      newPhotoPath = await this.minioService.upload(file, 'advertiser-profiles');
+      const businessName = updateAdvertiserProfileDto.business_name || oldProfile.business_name;
+      const folder = `advertiser-profiles/${businessName}`;
+      newPhotoPath = await this.minioService.upload(file, folder);
     }
 
     const updatedProfile = await this.advertiserProfilesService.update(id, updateAdvertiserProfileDto, newPhotoPath);
