@@ -19,11 +19,7 @@ export class CreateAdvertiserProfileDto {
 
     @IsNotEmpty()
     @IsString()
-    Dica_number: string;
-
-    @IsNotEmpty()
-    @IsString()
-    photo: string;
+    dica_number: string;
 
     @IsNotEmpty()
     @IsString()

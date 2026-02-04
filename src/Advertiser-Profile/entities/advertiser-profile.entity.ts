@@ -25,7 +25,7 @@ export class AdvertiserProfile {
     business_type: string
 
     @Column({ type: 'varchar', length: 255 })
-    Dica_number: string
+    dica_number: string
 
     @Column({ type: 'varchar', length: 500 })
     photo: string

@@ -12,9 +12,12 @@ export class AdvertiserProfilesService {
     private advertiserProfileRepository: Repository<AdvertiserProfile>,
   ) {}
 
-  async createAdvertiserProfile(createAdvertiserProfileDto: CreateAdvertiserProfileDto): Promise<AdvertiserProfile> {
+  async createAdvertiserProfile(createAdvertiserProfileDto: CreateAdvertiserProfileDto, photoUrl: string): Promise<AdvertiserProfile> {
     try {
-        const advertiserProfile = this.advertiserProfileRepository.create(createAdvertiserProfileDto);
+        const advertiserProfile = this.advertiserProfileRepository.create({
+          ...createAdvertiserProfileDto,
+          photo: photoUrl,
+        });
         return await this.advertiserProfileRepository.save(advertiserProfile);
     } catch (error) {
       throw new Error(error.message);
@@ -42,13 +45,16 @@ export class AdvertiserProfilesService {
     }
   }
 
-  async update(id: string, updateAdvertiserProfileDto: UpdateAdvertiserProfileDto): Promise<AdvertiserProfile> {
+  async update(id: string, updateAdvertiserProfileDto: UpdateAdvertiserProfileDto, photoPath?: string): Promise<AdvertiserProfile> {
     try {
       const profile = await this.advertiserProfileRepository.findOneBy({ id });
       if (!profile) {
         throw new Error('Advertiser profile not found');
       }
       Object.assign(profile, updateAdvertiserProfileDto);
+      if (photoPath) {
+        profile.photo = photoPath;
+      }
       return await this.advertiserProfileRepository.save(profile);
     } catch (error) {
       throw new Error(error.message);
