@@ -7,6 +7,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { AdvertiserProfile } from '../../advertiser-profile/entities/advertiser-profile.entity';
+import { Transactions } from 'src/transactions/entities/transaction.entity';
 
 @Entity('advertisers')
 export class Advertiser {
@@ -45,4 +46,11 @@ export class Advertiser {
     (profile) => profile.advertiser_id,
   )
   profiles: AdvertiserProfile[];
+
+  @OneToMany(
+    () => Transactions,
+    (transaction) => transaction.advertiserId,
+  )
+  transactions: Transactions[];
+
 }

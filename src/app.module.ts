@@ -8,6 +8,7 @@ import { AdminUserModule } from './admin-users/admin-user.module';
 import { AdvertiserProfilesModule } from './advertiser-profile/advertiser-profiles.module';
 import { AuthModule } from './auth/auth.module';
 import { MinioModule } from './minio/minio.module';
+import { TransactionModule } from './transactions/transaction.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { MinioModule } from './minio/minio.module';
     AdvertiserProfilesModule,
     AdminUserModule,
     AuthModule,
+    TransactionModule
   ],
   controllers: [AppController],
   providers: [AppService],
