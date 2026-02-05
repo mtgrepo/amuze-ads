@@ -26,7 +26,7 @@ export class AdvertiserPostsService {
 
   async findAll(): Promise<AdvertiserPost[]> {
     try {
-      const data = await this.advertiserPostRepository.find();
+      const data = await this.advertiserPostRepository.find({ relations: ['advertiser'] });
       return data;
     } catch (error) {
       throw new Error(error.message);
