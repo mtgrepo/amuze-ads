@@ -33,7 +33,7 @@ export class AdvertiserService {
 
     async findAdvertiserById(id: string): Promise<Advertiser> {
         try {
-            const advertiser = await this.advertiserRepository.findOneBy({ id });
+            const advertiser = await this.advertiserRepository.findOne({ where: { id }, relations: ['profiles'] });
             if (!advertiser) {
                 throw new NotAcceptableException("Advertiser not found");
             }
