@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import { AdvertiserProfile } from '../../advertiser-profile/entities/advertiser-profile.entity';
 import { Transactions } from 'src/transactions/entities/transaction.entity';
+import { Notification } from 'src/notifications/entities/notification.entity';
 
 @Entity('advertisers')
 export class Advertiser {
@@ -52,5 +53,11 @@ export class Advertiser {
     (transaction) => transaction.advertiserId,
   )
   transactions: Transactions[];
+
+  @OneToMany(
+    () => Notification,
+    (notification) => notification.advertiser,
+  )
+  notifications: Notification[];
 
 }
