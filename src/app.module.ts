@@ -10,6 +10,7 @@ import { AuthModule } from './auth/auth.module';
 import { MinioModule } from './minio/minio.module';
 import { TransactionModule } from './transactions/transaction.module';
 import { NotificationModule } from './notifications/notification.module';
+import { AdvertiserPostsModule } from './advertiser-posts/advertiser-posts.module';
 
 @Module({
   imports: [
@@ -35,7 +36,8 @@ import { NotificationModule } from './notifications/notification.module';
     AdminUserModule,
     AuthModule,
     TransactionModule,
-    NotificationModule
+    NotificationModule,
+    AdvertiserPostsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

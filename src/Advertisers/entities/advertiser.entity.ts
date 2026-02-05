@@ -9,6 +9,7 @@ import {
 import { AdvertiserProfile } from '../../advertiser-profile/entities/advertiser-profile.entity';
 import { Transactions } from 'src/transactions/entities/transaction.entity';
 import { Notification } from 'src/notifications/entities/notification.entity';
+import { AdvertiserPost } from '../../advertiser-posts/entities/advertiser-post.entity';
 
 @Entity('advertisers')
 export class Advertiser {
@@ -43,14 +44,8 @@ export class Advertiser {
   updatedAt: Date;
 
   @OneToMany(
-    () => AdvertiserProfile,
-    (profile) => profile.advertiser_id,
-  )
-  profiles: AdvertiserProfile[];
-
-  @OneToMany(
     () => Transactions,
-    (transaction) => transaction.advertiserId,
+    (transaction) => transaction.advertiser,
   )
   transactions: Transactions[];
 
@@ -59,5 +54,14 @@ export class Advertiser {
     (notification) => notification.advertiser,
   )
   notifications: Notification[];
+  
+  @OneToMany(
+    () => AdvertiserProfile,
+    (profile) => profile.advertiser, // ✅ relation property
+  )
+  profiles: AdvertiserProfile[];
+
+  @OneToMany( () => AdvertiserPost, (post) => post.advertiser, { onDelete: 'CASCADE' } )
+  posts: AdvertiserPost[]
 
 }
