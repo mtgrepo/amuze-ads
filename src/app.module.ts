@@ -11,6 +11,7 @@ import { MinioModule } from './minio/minio.module';
 import { TransactionModule } from './transactions/transaction.module';
 import { NotificationModule } from './notifications/notification.module';
 import { AdvertiserPostsModule } from './advertiser-posts/advertiser-posts.module';
+import { SystemConfigsModule } from './system-configs/system-configs.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { AdvertiserPostsModule } from './advertiser-posts/advertiser-posts.modul
     TransactionModule,
     NotificationModule,
     AdvertiserPostsModule,
+    SystemConfigsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

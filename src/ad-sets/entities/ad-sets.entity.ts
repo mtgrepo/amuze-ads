@@ -1,5 +1,6 @@
+import { Ad } from "src/ads/entities/ad.entity";
 import { Campaign } from "src/campaigns/entities/campaign.entity";
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
 @Entity('ad_sets')
 export class AdSet {
@@ -35,5 +36,8 @@ export class AdSet {
     })
     @JoinColumn({ name: 'campaign_id' })
     campaign: Campaign;
+
+    @OneToMany(() => Ad, (ad) => ad.adSet)
+    ads: Ad[]
 
 }
