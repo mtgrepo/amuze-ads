@@ -13,6 +13,7 @@ import { NotificationModule } from './notifications/notification.module';
 import { AdvertiserPostsModule } from './advertiser-posts/advertiser-posts.module';
 import { SystemConfigsModule } from './system-configs/system-configs.module';
 import { AdModule } from './ads/ad.module';
+import { DailyAdStatsModule } from './daily-ad-stats/daily-ad-stats.module';
 
 @Module({
   imports: [
@@ -41,7 +42,8 @@ import { AdModule } from './ads/ad.module';
     NotificationModule,
     AdvertiserPostsModule,
     SystemConfigsModule,
-    AdModule
+    AdModule,
+    DailyAdStatsModule
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -2,7 +2,7 @@ import { Ad } from "src/ads/entities/ad.entity";
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 
 @Entity('advertiser_ad_stats')
-@Unique(['adId', 'statDate'])
+@Unique(['adId', 'startDate'])
 export class AdvertiserAdStats {
     @PrimaryGeneratedColumn('uuid')
     id: string;
@@ -11,7 +11,7 @@ export class AdvertiserAdStats {
     adId: string;
 
     @Column({ type: 'date', name: 'stat_date' })
-    statDate: Date;
+    startDate: Date;
 
     @Column({ type: 'integer' })
     impressions: number;
