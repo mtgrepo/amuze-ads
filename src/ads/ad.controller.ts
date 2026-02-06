@@ -1,7 +1,9 @@
-import { Body, Controller, Get, Param, Patch, Post } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
 import { AdService } from "./ad.service";
 import { CreateAdDTO } from "./dto/create-ad.dto";
+import { JwtAuthGuard } from "src/auth/jwt-auth.guard";
 
+@UseGuards(JwtAuthGuard)
 @Controller('ads')
 export class AdController {
     constructor(private readonly adService: AdService) {}

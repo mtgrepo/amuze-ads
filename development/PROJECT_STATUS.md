@@ -18,35 +18,109 @@ NestJS-based backend application for managing online advertising campaigns.
 
 ---
 
-## Module Status
+## Module Status Summary
+
+| Module | Status | Notes |
+|--------|--------|-------|
+| Advertisers | COMPLETE | All components fully implemented |
+| Admin-Users | COMPLETE | All components fully implemented |
+| Advertiser-Profile | COMPLETE | All components fully implemented |
+| Advertiser-Posts | COMPLETE | All components fully implemented |
+| Campaigns | COMPLETE | All components fully implemented |
+| Ad-Sets | COMPLETE | All components fully implemented |
+| Ads | COMPLETE | Create, Read, UpdateStatus (no delete needed) |
+| Daily-Ad-Stats | COMPLETE | All components fully implemented |
+| Transactions | COMPLETE | Only create needed |
+| Notifications | COMPLETE | All components fully implemented |
+| System-Configs | COMPLETE | All components fully implemented |
+| Auth | COMPLETE | All components fully implemented |
+| Minio | COMPLETE | Utility service fully implemented |
+
+**Overall: 13/13 modules complete**
+
+---
+
+## Detailed Module Status
 
 ### COMPLETED MODULES
 
-| Module | Entity | Service | Controller | DTOs | Status |
-|--------|--------|---------|------------|------|--------|
-| Advertiser | Done | Done | Done | Done | COMPLETE |
-| AdminUser | Done | Done | Done | Done | COMPLETE |
-| AdvertiserProfile | Done | Done | Done | Done | COMPLETE |
-| AdvertiserPosts | Done | Done | Done | Done | COMPLETE |
-| Notification | Done | Done | Done | Done | COMPLETE |
-| SystemConfigs | Done | Done | Done | Done | COMPLETE |
-| Auth | Done | Done | Done | Done | COMPLETE |
-| Minio | - | Done | - | - | COMPLETE |
+#### 1. Advertisers - COMPLETE
+- Entity: Full (UUID, name, email, phone, status, verified, password, lastLogin, relationships)
+- Service: Full CRUD
+- Controller: Full endpoints with JwtAuthGuard
+- DTOs: CreateAdvertiserDTO, UpdateAdvertiserDTO
 
-### PARTIALLY COMPLETE MODULES
+#### 2. Admin-Users - COMPLETE
+- Entity: Full (UUID, name, email, password, isActive)
+- Service: Full CRUD + findByEmail
+- Controller: Full endpoints with JwtAuthGuard
+- DTOs: CreateAdminUserDTO, UpdateAdminUserDTO
 
-| Module | Entity | Service | Controller | DTOs | Missing |
-|--------|--------|---------|------------|------|---------|
-| Transaction | Done | Partial | Partial | Done | getAll, getById, getByAdvertiser, update, delete |
+#### 3. Advertiser-Profile - COMPLETE
+- Entity: Full (UUID, advertiser_id FK, business details)
+- Service: Full CRUD
+- Controller: Full endpoints with file upload (Minio)
+- DTOs: CreateAdvertiserProfileDto, UpdateAdvertiserProfileDto
 
-### NOT IMPLEMENTED MODULES
+#### 4. Advertiser-Posts - COMPLETE
+- Entity: Full (UUID, advertiser_id FK, title, description, photo, status)
+- Service: Full CRUD
+- Controller: Full endpoints with file upload (Minio)
+- DTOs: CreateAdvertiserPostDto, UpdateAdvertiserPostDto
 
-| Module | Entity | Service | Controller | DTOs | Status |
-|--------|--------|---------|------------|------|--------|
-| Campaign | Done | Empty | Empty | Missing | NOT STARTED |
-| AdSet | Done | Empty | Empty | Missing | NOT STARTED |
-| Ad | Done | Empty | Empty | Missing | NOT STARTED |
-| DailyAdStats | Done | Empty | Empty | Missing | NOT STARTED |
+#### 5. Campaigns - COMPLETE
+- Entity: Full (UUID, name, objective, budgets, dates, status, relationships)
+- Service: Full CRUD
+- Controller: Full endpoints with date conversion
+- DTOs: CreateCampaignDTO, UpdateCampaignDTO
+
+#### 6. Ad-Sets - COMPLETE
+- Entity: Full (UUID, targeting: age, gender, location, category, campaign_id FK)
+- Service: Full CRUD
+- Controller: Full endpoints with JwtAuthGuard
+- DTOs: CreateAdSetsDTO, UpdateAdSetsDTO
+
+#### 7. Daily-Ad-Stats - COMPLETE
+- Entity: Full (UUID, ad_id FK, startDate, impressions, clicks, spent)
+- Service: create, findByAdId, findByDateRange
+- Controller: POST, GET by adId, GET by date range
+- DTOs: CreateDailyAdStatsDTO
+
+#### 8. Notifications - COMPLETE
+- Entity: Full (UUID, advertiser_id FK, title, message, read)
+- Service: create, findByAdvertiser, markAsRead, markAllAsRead
+- Controller: Full endpoints with JwtAuthGuard
+- DTOs: CreateNotificationDTO
+
+#### 9. System-Configs - COMPLETE
+- Entity: Full (UUID, category, configKey, configValue JSONB, description, isActive)
+- Service: Full CRUD + getByCategory, getByConfigKey, inactiveById
+- Controller: Full endpoints with JwtAuthGuard
+- DTOs: CreateSystemConfigDTO, UpdateSystemConfigDTO
+
+#### 10. Auth - COMPLETE
+- Service: login with JWT token generation
+- Controller: POST /auth/login
+- Guards: JwtAuthGuard, JwtStrategy
+- DTOs: LoginDTO
+
+#### 11. Minio - COMPLETE
+- Service: upload, getPresignedUrl, delete
+- Global module for file storage
+
+---
+
+#### 12. Ads - COMPLETE
+- Entity: Full (UUID, status, ad_set_id FK, relationships)
+- Service: Full (createAd, findAdList, findAdById, updateStatus)
+- Controller: Full endpoints with JwtAuthGuard
+- DTOs: CreateAdDTO
+
+#### 13. Transactions - COMPLETE
+- Entity: Full (UUID, advertiser_id FK, paymentMethod, amount, referenceType, referenceId)
+- Service: createTransaction (only create needed)
+- Controller: POST endpoint with JwtAuthGuard
+- DTOs: CreateTransactionDTO
 
 ---
 
@@ -71,131 +145,104 @@ SystemConfig (standalone)
 
 ---
 
-## Database Tables
-
-| Table Name | Entity File | Status |
-|------------|-------------|--------|
-| advertisers | advertiser.entity.ts | Complete |
-| admin_users | admin-user.entity.ts | Complete |
-| advertiser_profiles | advertiser-profile.entity.ts | Complete |
-| advertiser_posts | advertiser-post.entity.ts | Complete |
-| campaigns | campaign.entity.ts | Complete |
-| ad_sets | ad-sets.entity.ts | Complete |
-| ads | ad.entity.ts | Complete |
-| advertiser_ad_stats | daily-ad-stats.entity.ts | Complete |
-| notifications | notification.entity.ts | Complete |
-| transactions | transaction.entity.ts | Complete |
-| system_configs | system-config.entity.ts | Complete |
-
----
-
 ## API Endpoints
 
 ### Advertiser Module
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /advertisers | Create advertiser |
-| GET | /advertisers | Get all advertisers |
-| GET | /advertisers/:id | Get advertiser by ID |
-| PATCH | /advertisers/:id | Update advertiser |
-| DELETE | /advertisers/:id | Delete advertiser |
+| Method | Endpoint | Description | Status |
+|--------|----------|-------------|--------|
+| POST | /advertisers | Create advertiser | Done |
+| GET | /advertisers | Get all advertisers | Done |
+| GET | /advertisers/:id | Get advertiser by ID | Done |
+| PATCH | /advertisers/:id/update | Update advertiser | Done |
+| DELETE | /advertisers/:id | Delete advertiser | Done |
 
 ### AdminUser Module
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /admin-users | Create admin |
-| GET | /admin-users | Get all admins |
-| GET | /admin-users/:id | Get admin by ID |
-| PATCH | /admin-users/:id | Update admin |
-| DELETE | /admin-users/:id | Delete admin |
+| Method | Endpoint | Description | Status |
+|--------|----------|-------------|--------|
+| POST | /admin-users | Create admin | Done |
+| GET | /admin-users | Get all admins | Done |
+| GET | /admin-users/:id | Get admin by ID | Done |
+| PATCH | /admin-users/:id/update | Update admin | Done |
+| DELETE | /admin-users/:id | Delete admin | Done |
 
 ### AdvertiserProfile Module
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /advertiser-profiles | Create profile (with file) |
-| GET | /advertiser-profiles | Get all profiles |
-| GET | /advertiser-profiles/:id | Get profile by ID |
-| PATCH | /advertiser-profiles/:id | Update profile (with file) |
-| DELETE | /advertiser-profiles/:id | Delete profile |
+| Method | Endpoint | Description | Status |
+|--------|----------|-------------|--------|
+| POST | /advertiser-profiles | Create profile (with file) | Done |
+| GET | /advertiser-profiles | Get all profiles | Done |
+| GET | /advertiser-profiles/:id | Get profile by ID | Done |
+| PATCH | /advertiser-profiles/:id | Update profile (with file) | Done |
+| DELETE | /advertiser-profiles/:id | Delete profile | Done |
 
 ### AdvertiserPosts Module
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /advertiser-posts | Create post (with file) |
-| GET | /advertiser-posts | Get all posts |
-| GET | /advertiser-posts/:id | Get post by ID |
-| PATCH | /advertiser-posts/:id | Update post (with file) |
-| DELETE | /advertiser-posts/:id | Delete post |
+| Method | Endpoint | Description | Status |
+|--------|----------|-------------|--------|
+| POST | /advertiser-posts | Create post (with file) | Done |
+| GET | /advertiser-posts | Get all posts | Done |
+| GET | /advertiser-posts/:id | Get post by ID | Done |
+| PATCH | /advertiser-posts/:id | Update post (with file) | Done |
+| DELETE | /advertiser-posts/:id | Delete post | Done |
+
+### Campaign Module
+| Method | Endpoint | Description | Status |
+|--------|----------|-------------|--------|
+| POST | /campaigns | Create campaign | Done |
+| GET | /campaigns | Get all campaigns | Done |
+| GET | /campaigns/:id | Get campaign by ID | Done |
+| PATCH | /campaigns/:id/update | Update campaign | Done |
+| DELETE | /campaigns/:id | Delete campaign | Done |
+
+### AdSet Module
+| Method | Endpoint | Description | Status |
+|--------|----------|-------------|--------|
+| POST | /ad-sets | Create ad set | Done |
+| GET | /ad-sets | Get all ad sets | Done |
+| GET | /ad-sets/:id | Get ad set by ID | Done |
+| PATCH | /ad-sets/:id/update | Update ad set | Done |
+| DELETE | /ad-sets/:id | Delete ad set | Done |
+
+### Ad Module
+| Method | Endpoint | Description | Status |
+|--------|----------|-------------|--------|
+| POST | /ads | Create ad | Done |
+| GET | /ads | Get all ads | Done |
+| GET | /ads/:id | Get ad by ID | Done |
+| PATCH | /ads/:id/status | Update ad status | Done |
+
+### DailyAdStats Module
+| Method | Endpoint | Description | Status |
+|--------|----------|-------------|--------|
+| POST | /daily-ad-stats | Create stats | Done |
+| GET | /daily-ad-stats/ad/:adId | Get by ad ID | Done |
+| GET | /daily-ad-stats/ad/:adId/range | Get by date range | Done |
 
 ### Notification Module
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /notifications | Create notification |
-| GET | /notifications/advertiser/:advertiserId | Get by advertiser |
-| PATCH | /notifications/:id/read | Mark as read |
-| PATCH | /notifications/advertiser/:advertiserId/read-all | Mark all as read |
+| Method | Endpoint | Description | Status |
+|--------|----------|-------------|--------|
+| POST | /notifications | Create notification | Done |
+| GET | /notifications/:advertiserId | Get by advertiser | Done |
+| PATCH | /notifications/read/:notificationId | Mark as read | Done |
+| PATCH | /notifications/read-all/:advertiserId | Mark all as read | Done |
 
 ### SystemConfigs Module
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /system-configs | Create config |
-| GET | /system-configs | Get all configs |
-| GET | /system-configs/category/:category | Get by category |
-| GET | /system-configs/key/:configKey | Get by config key |
-| PATCH | /system-configs/:id | Update config |
-| PATCH | /system-configs/:id/inactive | Inactive config |
+| Method | Endpoint | Description | Status |
+|--------|----------|-------------|--------|
+| POST | /system-configs | Create config | Done |
+| GET | /system-configs | Get all configs | Done |
+| GET | /system-configs/category/:category | Get by category | Done |
+| GET | /system-configs/key/:configKey | Get by config key | Done |
+| PATCH | /system-configs/:id | Update config | Done |
+| PATCH | /system-configs/:id/inactive | Inactive config | Done |
 
-### Transaction Module (Incomplete)
+### Transaction Module
 | Method | Endpoint | Description | Status |
 |--------|----------|-------------|--------|
 | POST | /transactions | Create transaction | Done |
-| GET | /transactions | Get all transactions | TODO |
-| GET | /transactions/:id | Get transaction by ID | TODO |
-| GET | /transactions/advertiser/:advertiserId | Get by advertiser | TODO |
-| PATCH | /transactions/:id | Update transaction | TODO |
-| DELETE | /transactions/:id | Delete transaction | TODO |
 
 ### Auth Module
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /auth/login | Login (returns JWT) |
-
-### Campaign Module (Not Implemented)
 | Method | Endpoint | Description | Status |
 |--------|----------|-------------|--------|
-| POST | /campaigns | Create campaign | TODO |
-| GET | /campaigns | Get all campaigns | TODO |
-| GET | /campaigns/:id | Get campaign by ID | TODO |
-| GET | /campaigns/advertiser/:advertiserId | Get by advertiser | TODO |
-| PATCH | /campaigns/:id | Update campaign | TODO |
-| DELETE | /campaigns/:id | Delete campaign | TODO |
-
-### AdSet Module (Not Implemented)
-| Method | Endpoint | Description | Status |
-|--------|----------|-------------|--------|
-| POST | /ad-sets | Create ad set | TODO |
-| GET | /ad-sets | Get all ad sets | TODO |
-| GET | /ad-sets/:id | Get ad set by ID | TODO |
-| GET | /ad-sets/campaign/:campaignId | Get by campaign | TODO |
-| PATCH | /ad-sets/:id | Update ad set | TODO |
-| DELETE | /ad-sets/:id | Delete ad set | TODO |
-
-### Ad Module (Not Implemented)
-| Method | Endpoint | Description | Status |
-|--------|----------|-------------|--------|
-| POST | /ads | Create ad | TODO |
-| GET | /ads | Get all ads | TODO |
-| GET | /ads/:id | Get ad by ID | TODO |
-| GET | /ads/ad-set/:adSetId | Get by ad set | TODO |
-| PATCH | /ads/:id | Update ad | TODO |
-| DELETE | /ads/:id | Delete ad | TODO |
-
-### DailyAdStats Module (Not Implemented)
-| Method | Endpoint | Description | Status |
-|--------|----------|-------------|--------|
-| POST | /daily-ad-stats | Create stats | TODO |
-| GET | /daily-ad-stats/ad/:adId | Get by ad | TODO |
-| GET | /daily-ad-stats/ad/:adId/range | Get by date range | TODO |
+| POST | /auth/login | Login (returns JWT) | Done |
 
 ---
 
@@ -255,126 +302,12 @@ Sample data for `system_configs` table:
 
 ## TODO List
 
-### High Priority
-- [ ] Implement Campaign module (service, controller, DTOs)
-- [ ] Implement AdSet module (service, controller, DTOs)
-- [ ] Implement Ad module (service, controller, DTOs)
-- [ ] Implement DailyAdStats module (service, controller, DTOs)
-
-### Medium Priority
-- [ ] Complete Transaction module (add missing CRUD methods)
-- [ ] Add modules to app.module.ts (Campaign, AdSet, Ad, DailyAdStats)
-
-### Low Priority
+### Future Enhancements
 - [ ] Add validation pipes globally
 - [ ] Add Swagger documentation
 - [ ] Add unit tests
 - [ ] Add e2e tests
 - [ ] Disable synchronize in production
-
----
-
-## File Structure
-
-```
-src/
-├── ads/
-│   ├── entities/
-│   │   └── ad.entity.ts ✅
-│   ├── dto/ ❌
-│   ├── ad.service.ts ❌
-│   ├── ad.controller.ts ❌
-│   └── ad.module.ts ❌
-├── ad-sets/
-│   ├── entities/
-│   │   └── ad-sets.entity.ts ✅
-│   ├── dto/ ❌
-│   ├── ad-sets.service.ts ❌
-│   ├── ad-sets.controller.ts ❌
-│   └── ad-sets.module.ts ❌
-├── admin-users/
-│   ├── entities/
-│   │   └── admin-user.entity.ts ✅
-│   ├── dto/ ✅
-│   ├── admin-user.service.ts ✅
-│   ├── admin-user.controller.ts ✅
-│   └── admin-user.module.ts ✅
-├── advertiser-posts/
-│   ├── entities/
-│   │   └── advertiser-post.entity.ts ✅
-│   ├── dto/ ✅
-│   ├── advertiser-posts.service.ts ✅
-│   ├── advertiser-posts.controller.ts ✅
-│   └── advertiser-posts.module.ts ✅
-├── advertiser-profile/
-│   ├── entities/
-│   │   └── advertiser-profile.entity.ts ✅
-│   ├── dto/ ✅
-│   ├── advertiser-profiles.service.ts ✅
-│   ├── advertiser-profiles.controller.ts ✅
-│   └── advertiser-profiles.module.ts ✅
-├── advertisers/
-│   ├── entities/
-│   │   └── advertiser.entity.ts ✅
-│   ├── dto/ ✅
-│   ├── advertiser.service.ts ✅
-│   ├── advertiser.controller.ts ✅
-│   └── advertiser.module.ts ✅
-├── auth/
-│   ├── dto/ ✅
-│   ├── auth.service.ts ✅
-│   ├── auth.controller.ts ✅
-│   ├── auth.module.ts ✅
-│   ├── jwt.strategy.ts ✅
-│   └── jwt-auth.guard.ts ✅
-├── campaigns/
-│   ├── entities/
-│   │   └── campaign.entity.ts ✅
-│   ├── dto/ ❌
-│   ├── campaign.service.ts ❌
-│   ├── campaign.controller.ts ❌
-│   └── campaign.module.ts ❌
-├── daily-ad-stats/
-│   ├── entities/
-│   │   └── daily-ad-stats.entity.ts ✅
-│   ├── dto/ ❌
-│   ├── daily-ad-stats.service.ts ❌
-│   ├── daily-ad-stats.controller.ts ❌
-│   └── daily-ad-stats.module.ts ❌
-├── minio/
-│   ├── minio.service.ts ✅
-│   └── minio.module.ts ✅
-├── notifications/
-│   ├── entities/
-│   │   └── notification.entity.ts ✅
-│   ├── dto/ ✅
-│   ├── notification.service.ts ✅
-│   ├── notification.controller.ts ✅
-│   └── notification.module.ts ✅
-├── system-configs/
-│   ├── entities/
-│   │   └── system-config.entity.ts ✅
-│   ├── dto/ ✅
-│   ├── system-configs.service.ts ✅
-│   ├── system-configs.controller.ts ✅
-│   └── system-configs.module.ts ✅
-├── transactions/
-│   ├── entities/
-│   │   └── transaction.entity.ts ✅
-│   ├── dto/ ✅
-│   ├── transaction.service.ts ⚠️ (partial)
-│   ├── transaction.controller.ts ⚠️ (partial)
-│   └── transaction.module.ts ✅
-├── common/
-│   └── utils/
-│       └── password.utils.ts ✅
-├── app.module.ts ✅
-├── app.controller.ts ✅
-├── app.service.ts ✅
-└── main.ts ✅
-```
-
-Legend: ✅ Complete | ⚠️ Partial | ❌ Missing/Empty
 
 ---
 
@@ -402,17 +335,28 @@ MINIO_USE_SSL=
 
 ---
 
-## Git Commit History (Recent)
+## File Structure
 
 ```
-8fd0eeb System Configuration Added
-7845ead Another Update for Entities
-11789e9 Database Setup Partial Complete
-bac8246 Merge Conflict Fix
-134f7d7 Post CRUD
-83c7a1d Merge branch 'developer_branches/ingyin_phyo'
-9d988bd Notification Complete
-df39628 Transaction Complete
-26a1c1b Minio Object Storage Complete
-7706e0f JWT Auth Applied
+src/
+├── ads/                        ✅ COMPLETE
+├── ad-sets/                    ✅ COMPLETE
+├── admin-users/                ✅ COMPLETE
+├── advertiser-posts/           ✅ COMPLETE
+├── advertiser-profile/         ✅ COMPLETE
+├── advertisers/                ✅ COMPLETE
+├── auth/                       ✅ COMPLETE
+├── campaigns/                  ✅ COMPLETE
+├── daily-ad-stats/             ✅ COMPLETE
+├── minio/                      ✅ COMPLETE
+├── notifications/              ✅ COMPLETE
+├── system-configs/             ✅ COMPLETE
+├── transactions/               ✅ COMPLETE
+├── common/
+│   └── utils/
+│       └── password.utils.ts   ✅ COMPLETE
+├── app.module.ts               ✅ COMPLETE
+├── app.controller.ts           ✅ COMPLETE
+├── app.service.ts              ✅ COMPLETE
+└── main.ts                     ✅ COMPLETE
 ```
