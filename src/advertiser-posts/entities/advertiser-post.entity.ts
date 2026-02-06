@@ -1,5 +1,6 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Advertiser } from "../../advertisers/entities/advertiser.entity";
+import { Campaign } from "src/campaigns/entities/campaign.entity";
 
 @Entity("advertiser_posts")
 export class AdvertiserPost {
@@ -27,5 +28,8 @@ export class AdvertiserPost {
 
     @CreateDateColumn({ name: 'created_at' })
     createdAt: Date
+
+    @OneToMany(() => Campaign, (postCampaign) => postCampaign.post)
+    campaigns: Campaign[]
 
 }
