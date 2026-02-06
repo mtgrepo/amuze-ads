@@ -10,6 +10,7 @@ import { AdvertiserProfile } from '../../advertiser-profile/entities/advertiser-
 import { Transactions } from 'src/transactions/entities/transaction.entity';
 import { Notification } from 'src/notifications/entities/notification.entity';
 import { AdvertiserPost } from '../../advertiser-posts/entities/advertiser-post.entity';
+import { Campaign } from 'src/campaigns/entities/campaign.entity';
 
 @Entity('advertisers')
 export class Advertiser {
@@ -61,7 +62,10 @@ export class Advertiser {
   )
   profiles: AdvertiserProfile[];
 
-  @OneToMany( () => AdvertiserPost, (post) => post.advertiser, { onDelete: 'CASCADE' } )
+  @OneToMany( () => AdvertiserPost, (post) => post.advertiser )
   posts: AdvertiserPost[]
+
+  @OneToMany(() => Campaign, (advertiserCampaign) => advertiserCampaign.advertiser)
+  campaigns: Campaign[]
 
 }

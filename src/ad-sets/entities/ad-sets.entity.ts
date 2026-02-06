@@ -1,0 +1,39 @@
+import { Campaign } from "src/campaigns/entities/campaign.entity";
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+
+@Entity('ad_sets')
+export class AdSet {
+    @PrimaryGeneratedColumn('uuid')
+    id: string;
+
+    @Column({ type: 'integer', name: 'age_min' })
+    ageMin: number;
+
+    @Column({ type: 'integer', name: 'age_max' })
+    ageMax: number;
+
+    @Column({ type: 'varchar', length: 255 })
+    gender: string;
+
+    @Column({ type: 'text' })
+    location: string;
+
+    @Column({ type: 'varchar', length: 255 })
+    category: string;
+
+    @CreateDateColumn({ name: 'created_at' })
+    createdAt: Date;
+
+    @UpdateDateColumn({ name: 'updated_at' })
+    updatedAt: Date;
+
+    @Column({ type: 'uuid', name: 'campaign_id' })
+    campaignId: string
+
+    @ManyToOne(() => Campaign, (campaign) => campaign.adSets, {
+        onDelete: 'CASCADE',
+    })
+    @JoinColumn({ name: 'campaign_id' })
+    campaign: Campaign;
+
+}
