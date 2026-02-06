@@ -8,6 +8,8 @@ import { AdminUserModule } from './admin-users/admin-user.module';
 import { AdvertiserProfilesModule } from './advertiser-profile/advertiser-profiles.module';
 import { AuthModule } from './auth/auth.module';
 import { MinioModule } from './minio/minio.module';
+import { TransactionModule } from './transactions/transaction.module';
+import { NotificationModule } from './notifications/notification.module';
 import { AdvertiserPostsModule } from './advertiser-posts/advertiser-posts.module';
 
 @Module({
@@ -33,6 +35,8 @@ import { AdvertiserPostsModule } from './advertiser-posts/advertiser-posts.modul
     AdvertiserProfilesModule,
     AdminUserModule,
     AuthModule,
+    TransactionModule,
+    NotificationModule,
     AdvertiserPostsModule,
   ],
   controllers: [AppController],

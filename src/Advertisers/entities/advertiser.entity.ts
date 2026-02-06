@@ -7,6 +7,8 @@ import {
   OneToMany,
 } from 'typeorm';
 import { AdvertiserProfile } from '../../advertiser-profile/entities/advertiser-profile.entity';
+import { Transactions } from 'src/transactions/entities/transaction.entity';
+import { Notification } from 'src/notifications/entities/notification.entity';
 import { AdvertiserPost } from '../../advertiser-posts/entities/advertiser-post.entity';
 
 @Entity('advertisers')
@@ -41,13 +43,25 @@ export class Advertiser {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-@OneToMany(
-  () => AdvertiserProfile,
-  (profile) => profile.advertiser, // ✅ relation property
-)
-profiles: AdvertiserProfile[];
+  @OneToMany(
+    () => Transactions,
+    (transaction) => transaction.advertiser,
+  )
+  transactions: Transactions[];
 
-@OneToMany( () => AdvertiserPost, (post) => post.advertiser, { onDelete: 'CASCADE' } )
-posts: AdvertiserPost[]
+  @OneToMany(
+    () => Notification,
+    (notification) => notification.advertiser,
+  )
+  notifications: Notification[];
+  
+  @OneToMany(
+    () => AdvertiserProfile,
+    (profile) => profile.advertiser, // ✅ relation property
+  )
+  profiles: AdvertiserProfile[];
+
+  @OneToMany( () => AdvertiserPost, (post) => post.advertiser, { onDelete: 'CASCADE' } )
+  posts: AdvertiserPost[]
 
 }
