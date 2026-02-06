@@ -12,6 +12,8 @@ import { TransactionModule } from './transactions/transaction.module';
 import { NotificationModule } from './notifications/notification.module';
 import { AdvertiserPostsModule } from './advertiser-posts/advertiser-posts.module';
 import { SystemConfigsModule } from './system-configs/system-configs.module';
+import { CamapignModule } from './campaigns/campaign.module';
+import { AdSetsModule } from './ad-sets/ad-sets.module';
 
 @Module({
   imports: [
@@ -40,6 +42,8 @@ import { SystemConfigsModule } from './system-configs/system-configs.module';
     NotificationModule,
     AdvertiserPostsModule,
     SystemConfigsModule,
+    CamapignModule,
+    AdSetsModule
   ],
   controllers: [AppController],
   providers: [AppService],
