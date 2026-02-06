@@ -24,11 +24,11 @@ export class CreateCampaignDTO {
 
     @IsNotEmpty()
     @IsDateString()
-    startDate: Date
+    startDate: string
 
     @IsNotEmpty()
     @IsDateString()
-    endDate: Date
+    endDate: string
 
     @IsNotEmpty()
     @IsString()

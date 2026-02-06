@@ -11,4 +11,4 @@ import { CampaignController } from "./campaign.controller";
   providers: [CampaignService],
   controllers: [CampaignController],
 })
-export class CamapignModule {}
+export class CampaignModule {}

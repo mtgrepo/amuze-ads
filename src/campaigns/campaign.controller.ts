@@ -15,7 +15,11 @@ export class CampaignController {
 
     @Post()
     async createCampaign(@Body() campaignData: CreateCampaignDTO) {
-        const campaign = await this.campaignService.createCampaign(campaignData);
+        const campaign = await this.campaignService.createCampaign({
+            ...campaignData,
+            startDate: new Date(campaignData.startDate),
+            endDate: new Date(campaignData.endDate)
+        });
         return {
             data: campaign,
             message: 'Campaign created successfully',
@@ -42,7 +46,12 @@ export class CampaignController {
 
     @Patch(':id/update')
     async update(@Param('id') id: string, @Body() updateData: UpdateCampaignDTO) {
-        const campaign = await this.campaignService.updateCampaign(id, updateData);
+        const { startDate, endDate, ...rest } = updateData;
+        const campaign = await this.campaignService.updateCampaign(id, {
+            ...rest,
+            ...(startDate && { startDate: new Date(startDate) }),
+            ...(endDate && { endDate: new Date(endDate) })
+        });
         return {
             data: campaign,
             message: 'Campaign updated successfully',

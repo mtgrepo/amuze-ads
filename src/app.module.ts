@@ -14,7 +14,7 @@ import { AdvertiserPostsModule } from './advertiser-posts/advertiser-posts.modul
 import { SystemConfigsModule } from './system-configs/system-configs.module';
 import { AdModule } from './ads/ad.module';
 import { DailyAdStatsModule } from './daily-ad-stats/daily-ad-stats.module';
-import { CamapignModule } from './campaigns/campaign.module';
+import { CampaignModule } from './campaigns/campaign.module';
 import { AdSetsModule } from './ad-sets/ad-sets.module';
 
 @Module({
@@ -46,7 +46,7 @@ import { AdSetsModule } from './ad-sets/ad-sets.module';
     SystemConfigsModule,
     AdModule,
     DailyAdStatsModule,
-    CamapignModule,
+    CampaignModule,
     AdSetsModule
   ],
   controllers: [AppController],
