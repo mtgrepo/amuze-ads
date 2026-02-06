@@ -12,6 +12,7 @@ import { TransactionModule } from './transactions/transaction.module';
 import { NotificationModule } from './notifications/notification.module';
 import { AdvertiserPostsModule } from './advertiser-posts/advertiser-posts.module';
 import { SystemConfigsModule } from './system-configs/system-configs.module';
+import { AdModule } from './ads/ad.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { SystemConfigsModule } from './system-configs/system-configs.module';
     NotificationModule,
     AdvertiserPostsModule,
     SystemConfigsModule,
+    AdModule
   ],
   controllers: [AppController],
   providers: [AppService],
