@@ -26,7 +26,7 @@ export class AdvertiserProfilesService {
 
   async findAdvertiserProfiles(): Promise<AdvertiserProfile[]> {
     try {
-      const data = await this.advertiserProfileRepository.find();
+      const data = await this.advertiserProfileRepository.find({ relations: ['advertiser'] });
       return data;
     } catch (error) {
       throw new Error(error.message);
