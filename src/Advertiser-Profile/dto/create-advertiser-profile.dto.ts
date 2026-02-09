@@ -28,4 +28,13 @@ export class CreateAdvertiserProfileDto {
     @IsNotEmpty()
     @IsString()
     address: string;
+
+    @IsNotEmpty()
+    @IsString()
+    country: string;
+
+    @IsNotEmpty()
+    @IsString()
+    timezone: string;
+
 }

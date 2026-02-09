@@ -1,4 +1,4 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { Advertiser } from "../../advertisers/entities/advertiser.entity";
 
 @Entity('advertiser_profiles')
@@ -35,5 +35,17 @@ export class AdvertiserProfile {
 
     @Column({ type: 'text' })
     address: string
+
+    @Column({ type: 'varchar', length: 255 })
+    country: string
+
+    @Column({ type: 'varchar', length: 255 })
+    timezone: string
+
+    @CreateDateColumn({ name: 'created_at' })
+    createdAt: Date
+
+    @UpdateDateColumn({ name: 'updated_at' })
+    updatedAt: Date
 
 }
