@@ -31,6 +31,14 @@ export class AdvertiserService {
         }
     }
 
+    async findAdvertiserByEmail(email: string): Promise<Advertiser | null> {
+        try {
+            return await this.advertiserRepository.findOneBy({ email });
+        } catch (error) {
+            throw new NotAcceptableException(error.message);
+        }
+    }
+
     async findAdvertiserById(id: string): Promise<Advertiser> {
         try {
             const advertiser = await this.advertiserRepository.findOne({ where: { id }, relations: ['profiles'] });

@@ -11,5 +11,6 @@ import { AdvertiserController } from "./advertiser.controller";
   ],
   providers: [AdvertiserService],
   controllers: [AdvertiserController],
+  exports: [AdvertiserService]
 })
 export class AdvertiserModule {}
