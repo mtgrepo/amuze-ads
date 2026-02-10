@@ -49,12 +49,12 @@ export class SystemConfigsService {
         return await this.systemConfigRepository.save(config);
     }
 
-    async inactiveById(id: string): Promise<SystemConfig> {
+    async setActiveStatus(id: string, isActive: boolean): Promise<SystemConfig> {
         const config = await this.systemConfigRepository.findOne({ where: { id } });
         if (!config) {
             throw new NotFoundException(`Config with id '${id}' not found`);
         }
-        config.isActive = false;
+        config.isActive = isActive;
         return await this.systemConfigRepository.save(config);
     }
 }
