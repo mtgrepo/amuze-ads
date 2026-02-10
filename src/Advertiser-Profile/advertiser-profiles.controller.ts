@@ -29,8 +29,6 @@ export class AdvertiserProfilesController {
       fileName,
     );
 
-    advertiserProfile.photo = await this.minioService.getPresignedUrl(advertiserProfile.photo);
-
     return {
       data: advertiserProfile,
       message: 'Advertiser profile created successfully',
@@ -41,12 +39,6 @@ export class AdvertiserProfilesController {
   async findAll() {
     const profiles = await this.advertiserProfilesService.findAdvertiserProfiles();
 
-    for (const profile of profiles) {
-      if (profile.photo) {
-        profile.photo = await this.minioService.getPresignedUrl(profile.photo);
-      }
-    }
-
     return {
       data: profiles,
       message: 'Advertiser profiles retrieved successfully',
@@ -56,10 +48,6 @@ export class AdvertiserProfilesController {
   @Get(':id')
   async findOne(@Param('id') id: string) {
     const profile = await this.advertiserProfilesService.findOne(id);
-
-    if (profile.photo) {
-      profile.photo = await this.minioService.getPresignedUrl(profile.photo);
-    }
 
     return {
       data: profile,
@@ -87,10 +75,6 @@ export class AdvertiserProfilesController {
     }
 
     const updatedProfile = await this.advertiserProfilesService.update(id, updateAdvertiserProfileDto, newPhotoPath);
-
-    if (updatedProfile.photo) {
-      updatedProfile.photo = await this.minioService.getPresignedUrl(updatedProfile.photo);
-    }
 
     return {
       data: updatedProfile,

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -16,6 +17,7 @@ import { AdModule } from './ads/ad.module';
 import { DailyAdStatsModule } from './daily-ad-stats/daily-ad-stats.module';
 import { CampaignModule } from './campaigns/campaign.module';
 import { AdSetsModule } from './ad-sets/ad-sets.module';
+import { PresignedUrlInterceptor } from './common/interceptors/presigned-url.interceptor';
 
 @Module({
   imports: [
@@ -50,6 +52,12 @@ import { AdSetsModule } from './ad-sets/ad-sets.module';
     AdSetsModule
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: PresignedUrlInterceptor,
+    },
+  ],
 })
 export class AppModule {}
