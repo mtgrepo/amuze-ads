@@ -25,8 +25,7 @@ export class AdvertiserPostsController {
     const fileName = await this.minioService.upload(file, folder);
     
     const advertiserPost = await this.advertiserPostsService.create(createAdvertiserPostDto, fileName);
-    advertiserPost.photo = await this.minioService.getPresignedUrl(advertiserPost.photo);
-    
+
     return {
       data: advertiserPost,
       message: 'Advertiser post created successfully',
@@ -37,12 +36,6 @@ export class AdvertiserPostsController {
   async findAll() {
     const posts = await this.advertiserPostsService.findAll();
 
-    for (const post of posts) {
-      if (post.photo) {
-        post.photo = await this.minioService.getPresignedUrl(post.photo);
-      }
-    }
-
     return {
       data: posts,
       message: 'Advertiser posts retrieved successfully',
@@ -52,10 +45,6 @@ export class AdvertiserPostsController {
   @Get(':id')
   async findOne(@Param('id') id: string) {
     const post = await this.advertiserPostsService.findOne(id);
-
-    if(post.photo) {
-      post.photo = await this.minioService.getPresignedUrl(post.photo);
-    }
 
     return {
       data: post,
@@ -81,10 +70,6 @@ export class AdvertiserPostsController {
       newPhotoPath = await this.minioService.upload(file, folder);
     }
     const updatePost = await this.advertiserPostsService.update(id, updateAdvertiserPostDto, newPhotoPath);
-
-    if (updatePost.photo) {
-      updatePost.photo = await this.minioService.getPresignedUrl(updatePost.photo);
-    }
 
     return {
       data: updatePost,
