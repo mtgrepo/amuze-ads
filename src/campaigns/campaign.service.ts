@@ -53,6 +53,19 @@ export class CampaignService {
         }
     }
 
+    async changeCampaignStatus(id: string, status: string): Promise<Campaign> {
+        try {
+            const campaign = await this.findCampaignById(id);
+            if (!campaign) {
+                throw new Error("Campaign not found");
+            }
+            campaign.status = status;
+            return await this.campaignRepository.save(campaign);
+        } catch (error) {
+            throw new NotAcceptableException(error.message);
+        }
+    }
+
     async deleteCampaign(id: string): Promise<Campaign> {
         try {
             const campaign = await this.findCampaignById(id);

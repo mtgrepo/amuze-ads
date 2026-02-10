@@ -58,6 +58,15 @@ export class CampaignController {
         }
     }
 
+    @Patch(':id/change-status')
+    async changeStatus(@Param('id') id: string, @Body('status') status: string) {
+        const campaign = await this.campaignService.changeCampaignStatus(id, status);
+        return {
+            data: campaign,
+            message: 'Campaign status changed successfully',
+        }
+    }
+
     @Delete(':id')
     async remove(@Param('id') id: string) {
         const campaign = await this.campaignService.deleteCampaign(id);
