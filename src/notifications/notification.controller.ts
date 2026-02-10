@@ -17,6 +17,15 @@ export class NotificationController {
         }
     }
 
+    @Get()
+    async findAll() {
+        const notifications = await this.notificationService.findNotifications();
+        return {
+            data: notifications,
+            message: 'Notifications retrieved successfully',
+        }
+    }
+
     @Get(':advertiserId')
     async findByAdvertiser(@Param('advertiserId') advertiserId: string) {
         const notifications = await this.notificationService.findNotificationsByAdvertiser(advertiserId);

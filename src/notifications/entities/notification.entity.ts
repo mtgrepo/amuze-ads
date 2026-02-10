@@ -12,7 +12,7 @@ export class Notification {
     @ManyToOne(() => Advertiser, (advertiser) => advertiser.notifications, {
         onDelete: 'CASCADE',
     })
-    @JoinColumn({ name: 'advertiser_id' })
+    @JoinColumn({ name: 'advertiserId' })
     advertiser: Advertiser;
 
     @Column({ type: 'varchar', length: 255 })

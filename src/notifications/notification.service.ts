@@ -19,6 +19,15 @@ export class NotificationService {
         }
     }
 
+    async findNotifications(): Promise<Notification[]> {
+        try {
+            const notifications = await this.notificationRepository.find({ relations: ['advertiser'] });
+            return notifications;
+        } catch (error) {
+            throw new NotAcceptableException(error.message);
+        }
+    }
+
     async findNotificationsByAdvertiser(advertiserId: string): Promise<Notification[]> {
         try {
             return await this.notificationRepository.find({
