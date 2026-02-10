@@ -54,12 +54,14 @@ export class SystemConfigsController {
         };
     }
 
-    @Patch(':id/inactive')
-    async inactiveById(@Param('id') id: string) {
-        const config = await this.systemConfigsService.inactiveById(id);
+    @Patch(':id/active')
+    async setActiveStatus(@Param('id') id: string, @Body('isActive') isActive: boolean) {
+        const config = await this.systemConfigsService.setActiveStatus(id, isActive);
         return {
             data: config,
-            message: 'System config inactivated successfully',
+            message: isActive
+                ? 'System config activated successfully'
+                : 'System config inactivated successfully',
         };
     }
 }
