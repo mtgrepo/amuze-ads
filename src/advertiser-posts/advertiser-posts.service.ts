@@ -45,6 +45,18 @@ export class AdvertiserPostsService {
     }
   }
 
+  async findByAdvertiserId(advertiser_id: string): Promise<AdvertiserPost[]> {
+    try {
+      const data = await this.advertiserPostRepository.find({ where: { advertiser_id }, relations: ['advertiser'] });
+      if(!data) {
+        throw new Error('Advertiser post not found');
+      }
+      return data;
+    } catch (error) {
+      throw new Error(error.message);
+    }
+  }
+
   async update(id: string, updateAdvertiserPostDto: UpdateAdvertiserPostDto, photoPath?: string): Promise<AdvertiserPost> {
     try {
       const response = await this.advertiserPostRepository.findOneBy({ id });

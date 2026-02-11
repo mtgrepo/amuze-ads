@@ -9,11 +9,9 @@ export class AdvertiserProfile {
     @Column({ type: 'uuid' })
     advertiser_id: string
 
-    @ManyToOne(() => Advertiser, (advertiser) => advertiser.profiles, {
-        onDelete: 'CASCADE',
-    })
-    @JoinColumn({ name: 'advertiser_id' })
-    advertiser: Advertiser;
+    @ManyToOne(() => Advertiser, advertiser => advertiser.profiles)
+    @JoinColumn({ name: 'advertiser_id' }) // maps the DB column
+    advertiser: Advertiser
 
     @Column({ type: 'varchar', length: 255 })
     business_name: string

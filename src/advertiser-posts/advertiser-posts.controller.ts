@@ -52,6 +52,16 @@ export class AdvertiserPostsController {
     }
   }
 
+  @Get('advertiser/:id')
+  async findByAdvertiser(@Param('id') id: string) {
+    const posts = await this.advertiserPostsService.findByAdvertiserId(id);
+
+    return {
+      data: posts,
+      message: 'Advertiser posts retrieved successfully',
+    }
+  }
+
   @Patch(':id')
   @UseInterceptors(FileInterceptor('photo', { storage: memoryStorage() }))
   async update(
