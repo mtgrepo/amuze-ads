@@ -90,6 +90,28 @@ export class DailyAdStatsService {
         }
     }
 
+    async incrementStats(adId: string, statsToIncrement: Partial<AdvertiserAdStats>) {
+        try {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const stats = await this.advertiserAdStatsRepository
+                .createQueryBuilder('stats')
+                .where('stats.ad_id = :adId', { adId })
+                .andWhere('stats.stat_date = :today', { today: today.toISOString().split('T')[0] })
+                .getOne();
+
+            if (!stats) {
+                throw new NotFoundException('No stats record found for this ad today');
+            }
+
+            const updatedStats = Object.assign(stats, statsToIncrement);
+            return await this.advertiserAdStatsRepository.save(updatedStats);
+        } catch (error) {
+            throw new NotAcceptableException(error.message);
+        }
+    }
+
     async checkAdServable(adId: string) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);

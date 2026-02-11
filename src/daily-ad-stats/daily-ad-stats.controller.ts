@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "src/auth/jwt-auth.guard";
 import { DailyAdStatsService } from "./daily-ad-stats.service";
 import { CreateDailyAdStatsDTO } from "./dto/create-daily-ad-stats.dto";
+import { AdvertiserAdStats } from "./entities/daily-ad-stats.entity";
 
 @UseGuards(JwtAuthGuard)
 @Controller('daily-ad-stats')
@@ -17,6 +18,15 @@ export class DailyAdStatsController {
         return {
             data: adStats,
             message: 'Daily ad stats created successfully',
+        };
+    }
+
+    @Patch('ID/:id/increase-stats')
+    async increaseStats(@Param('id') id: string, @Body() statsToIncrement: Partial<AdvertiserAdStats>) {
+        const updatedStats = await this.dailyAdStatsService.incrementStats(id, statsToIncrement);
+        return {
+            data: updatedStats,
+            message: 'Daily ad stats incremented successfully',
         };
     }
 
