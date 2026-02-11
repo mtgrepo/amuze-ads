@@ -1,4 +1,4 @@
-import { IsDateString, IsNotEmpty, IsNumber, IsString } from "class-validator";
+import { IsDateString, IsIn, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
 
 export class CreateDailyAdStatsDTO {
     @IsNotEmpty()
@@ -20,4 +20,28 @@ export class CreateDailyAdStatsDTO {
     @IsNotEmpty()
     @IsNumber()
     spent: number;
+
+    @IsOptional()
+    @IsIn(['CPM', 'CPC', 'CPE'])
+    pricingMode?: string;
+
+    @IsOptional()
+    @IsNumber()
+    maxImpressions?: number;
+
+    @IsOptional()
+    @IsNumber()
+    maxClicks?: number;
+
+    @IsOptional()
+    @IsNumber()
+    maxEngagements?: number;
+
+    @IsOptional()
+    @IsNumber()
+    engagements?: number;
+
+    @IsOptional()
+    @IsNumber()
+    dailyBudget?: number;
 }

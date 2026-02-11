@@ -9,6 +9,6 @@ import { AdController } from "./ad.controller";
     TypeOrmModule.forFeature([Ad])
   ],
   providers: [AdService],
-  controllers: [AdController],
+  controllers: [AdController]
 })
 export class AdModule {}

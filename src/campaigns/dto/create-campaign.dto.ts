@@ -1,13 +1,13 @@
-import { IsDateString, IsNotEmpty, IsNumber, IsString } from "class-validator";
+import { IsDateString, IsIn, IsNotEmpty, IsNumber, IsString } from "class-validator";
 
 export class CreateCampaignDTO {
-    
+
     @IsNotEmpty()
     @IsString()
     name: string
 
     @IsNotEmpty()
-    @IsString()
+    @IsIn(['reach', 'traffic', 'engagement'])
     objective: string
 
     @IsNotEmpty()

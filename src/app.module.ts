@@ -18,9 +18,11 @@ import { DailyAdStatsModule } from './daily-ad-stats/daily-ad-stats.module';
 import { CampaignModule } from './campaigns/campaign.module';
 import { AdSetsModule } from './ad-sets/ad-sets.module';
 import { PresignedUrlInterceptor } from './common/interceptors/presigned-url.interceptor';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],

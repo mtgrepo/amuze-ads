@@ -22,6 +22,24 @@ export class AdvertiserAdStats {
     @Column({ type: 'integer' })
     spent: number;
 
+    @Column({ type: 'varchar', length: 20, nullable: true, name: 'pricing_mode' })
+    pricingMode: string | null;
+
+    @Column({ type: 'integer', default: 0, name: 'max_impressions' })
+    maxImpressions: number;
+
+    @Column({ type: 'integer', default: 0, name: 'max_clicks' })
+    maxClicks: number;
+
+    @Column({ type: 'integer', default: 0, name: 'max_engagements' })
+    maxEngagements: number;
+
+    @Column({ type: 'integer', default: 0 })
+    engagements: number;
+
+    @Column({ type: 'integer', default: 0, name: 'daily_budget' })
+    dailyBudget: number;
+
     @CreateDateColumn({ name: 'created_at' })
     createdAt: Date;
 

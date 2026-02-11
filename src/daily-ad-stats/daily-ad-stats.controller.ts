@@ -20,6 +20,15 @@ export class DailyAdStatsController {
         };
     }
 
+    @Get('ad/:adId/servable')
+    async checkAdServable(@Param('adId') adId: string) {
+        const result = await this.dailyAdStatsService.checkAdServable(adId);
+        return {
+            data: result,
+            message: 'Ad servability check completed',
+        };
+    }
+
     @Get('ad/:adId')
     async findByAdId(@Param('adId') adId: string) {
         const stats = await this.dailyAdStatsService.findByAdId(adId);
