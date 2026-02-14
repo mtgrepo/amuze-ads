@@ -1,4 +1,16 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  Query,
+} from '@nestjs/common';
 import { AdvertiserPostsService } from './advertiser-posts.service';
 import { CreateAdvertiserPostDto } from './dto/create-advertiser-post.dto';
 import { UpdateAdvertiserPostDto } from './dto/update-advertiser-post.dto';
@@ -12,7 +24,7 @@ import { memoryStorage } from 'multer';
 export class AdvertiserPostsController {
   constructor(
     private readonly advertiserPostsService: AdvertiserPostsService,
-    private readonly minioService: MinioService
+    private readonly minioService: MinioService,
   ) {}
 
   @Post()
@@ -23,23 +35,26 @@ export class AdvertiserPostsController {
   ) {
     const folder = `advertiser-posts/${createAdvertiserPostDto.title}`;
     const fileName = await this.minioService.upload(file, folder);
-    
-    const advertiserPost = await this.advertiserPostsService.create(createAdvertiserPostDto, fileName);
+
+    const advertiserPost = await this.advertiserPostsService.create(
+      createAdvertiserPostDto,
+      fileName,
+    );
 
     return {
       data: advertiserPost,
       message: 'Advertiser post created successfully',
-    }
+    };
   }
 
   @Get()
-  async findAll() {
-    const posts = await this.advertiserPostsService.findAll();
+  async findAll(@Query('advertiser_id') advertiser_id?: string) {
+    const posts = await this.advertiserPostsService.findAll(advertiser_id);
 
     return {
       data: posts,
       message: 'Advertiser posts retrieved successfully',
-    }
+    };
   }
 
   @Get(':id')
@@ -49,7 +64,7 @@ export class AdvertiserPostsController {
     return {
       data: post,
       message: 'Advertiser post retrieved successfully',
-    }
+    };
   }
 
   @Get('advertiser/:id')
@@ -59,15 +74,15 @@ export class AdvertiserPostsController {
     return {
       data: posts,
       message: 'Advertiser posts retrieved successfully',
-    }
+    };
   }
 
   @Patch(':id')
   @UseInterceptors(FileInterceptor('photo', { storage: memoryStorage() }))
   async update(
-    @Param('id') id: string, 
+    @Param('id') id: string,
     @Body() updateAdvertiserPostDto: UpdateAdvertiserPostDto,
-    @UploadedFile() file?: Express.Multer.File
+    @UploadedFile() file?: Express.Multer.File,
   ) {
     let newPhotoPath: string | undefined;
 
@@ -76,28 +91,32 @@ export class AdvertiserPostsController {
       if (oldPost.photo) {
         await this.minioService.delete(oldPost.photo);
       }
-      const folder = `advertiser-posts/${updateAdvertiserPostDto.title}`; 
+      const folder = `advertiser-posts/${updateAdvertiserPostDto.title}`;
       newPhotoPath = await this.minioService.upload(file, folder);
     }
-    const updatePost = await this.advertiserPostsService.update(id, updateAdvertiserPostDto, newPhotoPath);
+    const updatePost = await this.advertiserPostsService.update(
+      id,
+      updateAdvertiserPostDto,
+      newPhotoPath,
+    );
 
     return {
       data: updatePost,
       message: 'Advertiser post updated successfully',
-    }
+    };
   }
 
   @Delete(':id')
   async remove(@Param('id') id: string) {
     const post = await this.advertiserPostsService.findOne(id);
 
-    if(post.photo) {
+    if (post.photo) {
       await this.minioService.delete(post.photo);
     }
     await this.advertiserPostsService.remove(id);
     return {
       data: post,
       message: 'Advertiser post deleted successfully',
-    }
+    };
   }
 }
