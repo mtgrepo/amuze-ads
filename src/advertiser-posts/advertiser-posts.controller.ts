@@ -62,6 +62,19 @@ export class AdvertiserPostsController {
     }
   }
 
+  @Patch(':id/status')
+  async updateStatus(
+    @Param('id') id: string,
+    @Body('status') status: string
+  ) {
+    const updatedPost = await this.advertiserPostsService.updatePostStatus(id, status);
+
+    return {
+      data: updatedPost,
+      message: 'Advertiser post status updated successfully',
+    }
+  }
+
   @Patch(':id')
   @UseInterceptors(FileInterceptor('photo', { storage: memoryStorage() }))
   async update(

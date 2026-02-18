@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotAcceptableException } from '@nestjs/common';
 import { CreateAdvertiserPostDto } from './dto/create-advertiser-post.dto';
 import { UpdateAdvertiserPostDto } from './dto/update-advertiser-post.dto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -71,6 +71,19 @@ export class AdvertiserPostsService {
 
     } catch (error) {
       throw new Error(error.message);
+    }
+  }
+
+  async updatePostStatus (id: string, status: string): Promise<AdvertiserPost>{
+    try {
+      const response = await this.advertiserPostRepository.findOneBy({ id });
+      if (!response) {
+        throw new Error('Advertiser post not found');
+      }
+      response.status = status;
+      return await this.advertiserPostRepository.save(response);
+    } catch (error) {
+       throw new NotAcceptableException(error.message);
     }
   }
 
