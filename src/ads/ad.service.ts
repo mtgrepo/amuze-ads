@@ -1,19 +1,36 @@
-import { Injectable, NotAcceptableException } from "@nestjs/common";
+import { Injectable, NotAcceptableException, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Ad } from "./entities/ad.entity";
 import { Repository } from "typeorm";
+import { AdSet } from "src/ad-sets/entities/ad-sets.entity";
+import { CreateAdSetsDTO } from "src/ad-sets/dto/create-ad-sets.dto";
+import { UpdateAdSetsDTO } from "src/ad-sets/dto/update-ad-sets.dto";
 
 @Injectable()
 export class AdService {
     constructor(
         @InjectRepository(Ad)
-        private adRepository: Repository<Ad>
+        private adRepository: Repository<Ad>,
+        @InjectRepository(AdSet)
+        private adSetRepository: Repository<AdSet>
     ) {}
 
-    async createAd(adData: Partial<Ad>): Promise<Ad> {
+    async createAd(dto: CreateAdSetsDTO): Promise<Ad> {
         try {
-            const ad = this.adRepository.create(adData);
-            return await this.adRepository.save(ad);
+            const adSet = this.adSetRepository.create(dto);
+            const savedAdSet = await this.adSetRepository.save(adSet);
+
+            const ad = this.adRepository.create({ adSetId: savedAdSet.id, status: 'active' });
+            const savedAd = await this.adRepository.save(ad);
+
+            const adData = await this.adRepository.findOne({
+                where: { id: savedAd.id },
+                relations: ['adSet', 'adSet.campaign'],
+            });
+            if (!adData) {
+                throw new NotFoundException('Ad not found');
+            }
+            return adData;
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
@@ -21,8 +38,7 @@ export class AdService {
 
     async findAdList(): Promise<Ad[]> {
         try {
-            const ads = await this.adRepository.find({ relations: ['adSet', 'adSet.campaign'] });
-            return ads;
+            return await this.adRepository.find({ relations: ['adSet', 'adSet.campaign'] });
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
@@ -30,12 +46,28 @@ export class AdService {
 
     async findAdById(id: string): Promise<Ad> {
         try {
-            const ad = await this.adRepository.findOneBy({ id });
+            const ad = await this.adRepository.findOne({
+                where: { id },
+                relations: ['adSet', 'adSet.campaign'],
+            });
             if (!ad) {
-                throw new NotAcceptableException("Ad not found");
+                throw new NotFoundException('Ad not found');
             }
             return ad;
         } catch (error) {
+            if (error instanceof NotFoundException) throw error;
+            throw new NotAcceptableException(error.message);
+        }
+    }
+
+    async updateAd(id: string, dto: UpdateAdSetsDTO): Promise<Ad> {
+        try {
+            const ad = await this.findAdById(id);
+            Object.assign(ad.adSet, dto);
+            await this.adSetRepository.save(ad.adSet);
+            return await this.findAdById(id);
+        } catch (error) {
+            if (error instanceof NotFoundException) throw error;
             throw new NotAcceptableException(error.message);
         }
     }
@@ -43,14 +75,12 @@ export class AdService {
     async updateStatus(id: string, status: string): Promise<Ad> {
         try {
             const ad = await this.findAdById(id);
-            if (!ad) {
-                throw new NotAcceptableException("Ad not found");
-            }
             ad.status = status;
-            return await this.adRepository.save(ad);
+            await this.adRepository.save(ad);
+            return await this.findAdById(id);
         } catch (error) {
+            if (error instanceof NotFoundException) throw error;
             throw new NotAcceptableException(error.message);
         }
     }
-
 }
