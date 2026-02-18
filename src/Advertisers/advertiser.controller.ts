@@ -4,7 +4,7 @@ import { CreateAdvertiserDTO } from './dto/create-advertiser.dto';
 import { UpdateAdvertiserDTO } from './dto/update-advertiser.dto';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 
-@UseGuards(JwtAuthGuard)
+// @UseGuards(JwtAuthGuard)
 @Controller('advertisers')
 export class AdvertiserController {
     constructor(private readonly advertiserService: AdvertiserService) {}
