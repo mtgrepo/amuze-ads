@@ -3,12 +3,14 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Advertiser } from "./entities/advertiser.entity";
 import { hashPassword } from "src/common/utils/password.utils";
+import { NotificationService } from "src/notifications/notification.service";
 
 @Injectable()
 export class AdvertiserService {
     constructor(
         @InjectRepository(Advertiser)
         private advertiserRepository: Repository<Advertiser>,
+        private readonly notificationService: NotificationService
     ) {}
 
     async createAdvertiser(advertiserData: Partial<Advertiser>): Promise<Advertiser> {
@@ -74,7 +76,15 @@ export class AdvertiserService {
                 throw new NotAcceptableException("Advertiser not found");
             }
             advertiser.verified = verified;
-            return await this.advertiserRepository.save(advertiser);
+            const advertiserData = await this.advertiserRepository.save(advertiser);
+
+            this.notificationService.createNotification({
+                advertiserId: advertiserData.id,
+                title: "Notification about Account Verify Status",
+                message: `Your User Account has been verified !`
+            })
+
+            return advertiserData
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
@@ -87,7 +97,15 @@ export class AdvertiserService {
                 throw new NotAcceptableException("Advertiser not found");
             }
             advertiser.status = status;
-            return await this.advertiserRepository.save(advertiser);
+            const advertiserData = await this.advertiserRepository.save(advertiser);
+
+            this.notificationService.createNotification({
+                advertiserId: advertiserData.id,
+                title: "Notification about Account Status",
+                message: `Your User Account is ${status} !`
+            })
+
+            return advertiserData
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
