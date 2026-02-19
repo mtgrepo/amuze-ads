@@ -64,4 +64,43 @@ export class DailyAdStatsController {
             message: 'Daily ad stats retrieved successfully',
         };
     }
+
+    @Get('admin/overview')
+    async getAdminOverview() {
+        const result = await this.dailyAdStatsService.getAdminOverview();
+        return {
+            data: result,
+            message: 'Admin overview retrieved successfully',
+        };
+    }
+
+    @Get('admin/trend')
+    async getAdminTrend(@Query('days') days: string = '7') {
+        const result = await this.dailyAdStatsService.getAdminTrend(parseInt(days) || 7);
+        return {
+            data: result,
+            message: 'Admin trend retrieved successfully',
+        };
+    }
+
+    @Get('admin/pricing-distribution')
+    async getPricingDistribution() {
+        const result = await this.dailyAdStatsService.getPricingModeDistribution();
+        return {
+            data: result,
+            message: 'Pricing distribution retrieved successfully',
+        };
+    }
+
+    @Get('admin/top-ads')
+    async getTopAds(
+        @Query('limit') limit: string = '5',
+        @Query('metric') metric: string = 'clicks'
+    ) {
+        const result = await this.dailyAdStatsService.getTopAds(parseInt(limit) || 5, metric);
+        return {
+            data: result,
+            message: 'Top ads retrieved successfully',
+        };
+    }
 }

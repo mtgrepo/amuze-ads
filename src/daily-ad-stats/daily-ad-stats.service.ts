@@ -191,4 +191,99 @@ export class DailyAdStatsService {
         }
     }
 
+    async getAdminOverview() {
+        const today = new Date().toISOString().split('T')[0];
+        const result = await this.advertiserAdStatsRepository
+            .createQueryBuilder('stats')
+            .select('COALESCE(SUM(stats.impressions), 0)', 'totalImpressions')
+            .addSelect('COALESCE(SUM(stats.clicks), 0)', 'totalClicks')
+            .addSelect('COALESCE(SUM(stats.spent), 0)', 'totalSpent')
+            .addSelect('COALESCE(SUM(stats.engagements), 0)', 'totalEngagements')
+            .addSelect('COALESCE(SUM(stats.dailyBudget), 0)', 'totalBudget')
+            .addSelect('COUNT(DISTINCT stats.adId)', 'activeAds')
+            .where('stats.startDate = :today', { today })
+            .getRawOne();
+
+        return {
+            totalImpressions: Number(result?.totalImpressions ?? 0),
+            totalClicks: Number(result?.totalClicks ?? 0),
+            totalSpent: Number(result?.totalSpent ?? 0),
+            totalEngagements: Number(result?.totalEngagements ?? 0),
+            totalBudget: Number(result?.totalBudget ?? 0),
+            activeAds: Number(result?.activeAds ?? 0),
+        };
+    }
+
+    async getAdminTrend(days: number = 7) {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - (days - 1));
+
+        const results = await this.advertiserAdStatsRepository
+            .createQueryBuilder('stats')
+            .select('stats.startDate', 'date')
+            .addSelect('COALESCE(SUM(stats.impressions), 0)', 'impressions')
+            .addSelect('COALESCE(SUM(stats.clicks), 0)', 'clicks')
+            .addSelect('COALESCE(SUM(stats.spent), 0)', 'spent')
+            .addSelect('COALESCE(SUM(stats.engagements), 0)', 'engagements')
+            .addSelect('COALESCE(SUM(stats.dailyBudget), 0)', 'budget')
+            .where('stats.startDate BETWEEN :startDate AND :endDate', {
+                startDate: startDate.toISOString().split('T')[0],
+                endDate: endDate.toISOString().split('T')[0],
+            })
+            .groupBy('stats.startDate')
+            .orderBy('stats.startDate', 'ASC')
+            .getRawMany();
+
+        return results.map(r => ({
+            date: r.date,
+            impressions: Number(r.impressions),
+            clicks: Number(r.clicks),
+            spent: Number(r.spent),
+            engagements: Number(r.engagements),
+            budget: Number(r.budget),
+        }));
+    }
+
+    async getPricingModeDistribution() {
+        const today = new Date().toISOString().split('T')[0];
+        const results = await this.advertiserAdStatsRepository
+            .createQueryBuilder('stats')
+            .select("COALESCE(stats.pricingMode, 'Unknown')", 'pricingMode')
+            .addSelect('COUNT(DISTINCT stats.adId)', 'count')
+            .where('stats.startDate = :today', { today })
+            .groupBy('stats.pricingMode')
+            .getRawMany();
+
+        return results.map(r => ({
+            pricingMode: r.pricingMode || 'Unknown',
+            count: Number(r.count),
+        }));
+    }
+
+    async getTopAds(limit: number = 5, metric: string = 'clicks') {
+        const allowedMetrics = ['clicks', 'impressions', 'spent', 'engagements'];
+        const safeMetric = allowedMetrics.includes(metric) ? metric : 'clicks';
+
+        const results = await this.advertiserAdStatsRepository
+            .createQueryBuilder('stats')
+            .select('stats.adId', 'adId')
+            .addSelect('SUM(stats.impressions)', 'totalImpressions')
+            .addSelect('SUM(stats.clicks)', 'totalClicks')
+            .addSelect('SUM(stats.spent)', 'totalSpent')
+            .addSelect('SUM(stats.engagements)', 'totalEngagements')
+            .groupBy('stats.adId')
+            .orderBy(`SUM(stats.${safeMetric})`, 'DESC')
+            .limit(limit)
+            .getRawMany();
+
+        return results.map(r => ({
+            adId: r.adId,
+            totalImpressions: Number(r.totalImpressions),
+            totalClicks: Number(r.totalClicks),
+            totalSpent: Number(r.totalSpent),
+            totalEngagements: Number(r.totalEngagements),
+        }));
+    }
+
 }
