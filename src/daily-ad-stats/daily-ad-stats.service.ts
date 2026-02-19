@@ -28,10 +28,15 @@ export class DailyAdStatsService {
     @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
     async generateDailyAdStats() {
         try {
-            const activeAds = await this.adRepository.find({
-                where: { status: 'active' },
-                relations: ['adSet', 'adSet.campaign'],
-            });
+            const activeAds = await this.adRepository
+            .createQueryBuilder('ad')
+            .innerJoinAndSelect('ad.adSet', 'adSet')
+            .innerJoinAndSelect('adSet.campaign', 'campaign')
+            .innerJoinAndSelect('campaign.post', 'post')
+            .where('ad.status = :adStatus', { adStatus: 'active' })
+            .andWhere('campaign.status = :campaignStatus', { campaignStatus: 'active' })
+            .andWhere('post.status = :postStatus', { postStatus: 'active' })
+            .getMany();
 
             const pricingConfigs = await this.systemConfigsService.getByCategory('pricing');
 
