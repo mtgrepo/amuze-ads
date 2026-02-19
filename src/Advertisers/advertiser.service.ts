@@ -67,6 +67,32 @@ export class AdvertiserService {
         }
     }
 
+    async changeVerifyStatus(id: string, verified: boolean): Promise<Advertiser> {
+        try {
+            const advertiser = await this.findAdvertiserById(id);
+            if (!advertiser) {
+                throw new NotAcceptableException("Advertiser not found");
+            }
+            advertiser.verified = verified;
+            return await this.advertiserRepository.save(advertiser);
+        } catch (error) {
+            throw new NotAcceptableException(error.message);
+        }
+    }
+
+    async changeActiveStatus(id: string, status: string): Promise<Advertiser> {
+        try {
+            const advertiser = await this.findAdvertiserById(id);
+            if (!advertiser) {
+                throw new NotAcceptableException("Advertiser not found");
+            }
+            advertiser.status = status;
+            return await this.advertiserRepository.save(advertiser);
+        } catch (error) {
+            throw new NotAcceptableException(error.message);
+        }
+    }
+
     async deleteAdvertiser(id: string): Promise<Advertiser> {
         try {
             const advertiser = await this.findAdvertiserById(id);

@@ -40,8 +40,13 @@ export class AuthService {
   async advertiserLogin(email: string, password: string) {
     try {
       const user = await this.advertiserUserService.findAdvertiserByEmail(email);
+
       if (!user) {
         throw new UnauthorizedException('Invalid credentials');
+      }
+
+      if(!user?.verified || user.status === 'inactive'){
+        throw new UnauthorizedException('User Not Found!');
       }
 
       const isPasswordValid = await comparePassword(password, user.password);

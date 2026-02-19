@@ -45,6 +45,24 @@ export class AdvertiserController {
         };
     }
 
+    @Patch(':id/verify')
+    async updateVerifyStatus(@Param('id') id: string, @Body('verified') verified: boolean) {
+        const advertiser = await this.advertiserService.changeVerifyStatus(id, verified);
+        return {
+            data: advertiser,
+            message: 'Advertiser Verify Status Update successful'
+        }
+    }
+
+    @Patch(':id/status')
+    async updateActiveStatus(@Param('id') id: string, @Body('status') status: string) {
+        const advertiser = await this.advertiserService.changeActiveStatus(id, status);
+        return {
+            data: advertiser,
+            message: 'Advertiser Active Status Changed'
+        }
+    }
+
     @Delete(':id')
     async remove(@Param('id') id: string) {
         const advertiser = await this.advertiserService.deleteAdvertiser(id);
