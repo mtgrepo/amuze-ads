@@ -2,12 +2,14 @@ import { Injectable, NotAcceptableException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Campaign } from "./entities/campaign.entity";
 import { Repository } from "typeorm";
+import { NotificationService } from "../notifications/notification.service";
 
 @Injectable()
 export class CampaignService {
     constructor (
         @InjectRepository(Campaign)
         private campaignRepository: Repository<Campaign>,
+        private readonly notificationService: NotificationService
     ) {}
 
     async createCampaign(campaignData: Partial<Campaign>): Promise<Campaign> {
@@ -60,7 +62,13 @@ export class CampaignService {
                 throw new Error("Campaign not found");
             }
             campaign.status = status;
-            return await this.campaignRepository.save(campaign);
+            const campaignData = await this.campaignRepository.save(campaign);
+            await this.notificationService.createNotification({
+                advertiserId: campaignData?.advertiserId,
+                title: "Notification about Campaign Status",
+                message: `Your Campaign has been ${status} !`
+            })
+            return campaignData;
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }

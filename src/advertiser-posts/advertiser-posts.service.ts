@@ -4,12 +4,14 @@ import { UpdateAdvertiserPostDto } from './dto/update-advertiser-post.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { AdvertiserPost } from './entities/advertiser-post.entity';
 import { Repository } from 'typeorm';
+import { NotificationService } from '../notifications/notification.service';
 
 @Injectable()
 export class AdvertiserPostsService {
   constructor(
     @InjectRepository(AdvertiserPost)
     private advertiserPostRepository: Repository<AdvertiserPost>,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async create(
@@ -101,7 +103,15 @@ export class AdvertiserPostsService {
         throw new Error('Advertiser post not found');
       }
       response.status = status;
-      return await this.advertiserPostRepository.save(response);
+      const postData = await this.advertiserPostRepository.save(response);
+
+      //noti created
+      this.notificationService.createNotification({
+        advertiserId: postData?.advertiser_id,
+        title: "Notification about Post Status",
+        message: `Your Post has been ${status} !`
+      })
+      return postData;
     } catch (error) {
        throw new NotAcceptableException(error.message);
     }

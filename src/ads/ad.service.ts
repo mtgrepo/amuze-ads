@@ -5,6 +5,7 @@ import { Repository } from "typeorm";
 import { AdSet } from "src/ad-sets/entities/ad-sets.entity";
 import { CreateAdSetsDTO } from "src/ad-sets/dto/create-ad-sets.dto";
 import { UpdateAdSetsDTO } from "src/ad-sets/dto/update-ad-sets.dto";
+import { NotificationService } from "../notifications/notification.service";
 
 @Injectable()
 export class AdService {
@@ -12,7 +13,8 @@ export class AdService {
         @InjectRepository(Ad)
         private adRepository: Repository<Ad>,
         @InjectRepository(AdSet)
-        private adSetRepository: Repository<AdSet>
+        private adSetRepository: Repository<AdSet>,
+        private readonly notificationService: NotificationService
     ) {}
 
     async createAd(dto: CreateAdSetsDTO): Promise<Ad> {
@@ -77,7 +79,13 @@ export class AdService {
             const ad = await this.findAdById(id);
             ad.status = status;
             await this.adRepository.save(ad);
-            return await this.findAdById(id);
+            const adData = await this.findAdById(id);
+            await this.notificationService.createNotification({
+                advertiserId: adData?.adSet?.campaign?.advertiserId,
+                title: "Notification about Ad Status",
+                message: `Your Ad has been ${status} !`
+            })
+            return adData;
         } catch (error) {
             if (error instanceof NotFoundException) throw error;
             throw new NotAcceptableException(error.message);
