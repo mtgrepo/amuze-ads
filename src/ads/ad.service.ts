@@ -22,7 +22,7 @@ export class AdService {
             const adSet = this.adSetRepository.create(dto);
             const savedAdSet = await this.adSetRepository.save(adSet);
 
-            const ad = this.adRepository.create({ adSetId: savedAdSet.id, status: 'active' });
+            const ad = this.adRepository.create({ adSetId: savedAdSet.id, status: 'pending' });
             const savedAd = await this.adRepository.save(ad);
 
             const adData = await this.adRepository.findOne({

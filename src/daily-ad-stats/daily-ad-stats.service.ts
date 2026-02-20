@@ -191,46 +191,59 @@ export class DailyAdStatsService {
         }
     }
 
-    async getAdminOverview() {
+    async getAdminOverview(advertiserId?: string) {
         const today = new Date().toISOString().split('T')[0];
-        const result = await this.advertiserAdStatsRepository
+        let qb = this.advertiserAdStatsRepository
             .createQueryBuilder('stats')
             .select('COALESCE(SUM(stats.impressions), 0)', 'totalImpressions')
             .addSelect('COALESCE(SUM(stats.clicks), 0)', 'totalClicks')
-            .addSelect('COALESCE(SUM(stats.spent), 0)', 'totalSpent')
             .addSelect('COALESCE(SUM(stats.engagements), 0)', 'totalEngagements')
-            .addSelect('COALESCE(SUM(stats.dailyBudget), 0)', 'totalBudget')
             .addSelect('COUNT(DISTINCT stats.adId)', 'activeAds')
-            .where('stats.startDate = :today', { today })
-            .getRawOne();
+            .where('stats.startDate = :today', { today });
+
+        if (advertiserId) {
+            qb = qb
+                .innerJoin('stats.ad', 'ad')
+                .innerJoin('ad.adSet', 'adSet')
+                .innerJoin('adSet.campaign', 'campaign')
+                .andWhere('campaign.advertiserId = :advertiserId', { advertiserId });
+        }
+
+        const result = await qb.getRawOne();
 
         return {
             totalImpressions: Number(result?.totalImpressions ?? 0),
             totalClicks: Number(result?.totalClicks ?? 0),
-            totalSpent: Number(result?.totalSpent ?? 0),
             totalEngagements: Number(result?.totalEngagements ?? 0),
-            totalBudget: Number(result?.totalBudget ?? 0),
             activeAds: Number(result?.activeAds ?? 0),
         };
     }
 
-    async getAdminTrend(days: number = 7) {
+    async getAdminTrend(days: number = 7, advertiserId?: string) {
         const endDate = new Date();
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - (days - 1));
 
-        const results = await this.advertiserAdStatsRepository
+        let qb = this.advertiserAdStatsRepository
             .createQueryBuilder('stats')
             .select('stats.startDate', 'date')
             .addSelect('COALESCE(SUM(stats.impressions), 0)', 'impressions')
             .addSelect('COALESCE(SUM(stats.clicks), 0)', 'clicks')
-            .addSelect('COALESCE(SUM(stats.spent), 0)', 'spent')
             .addSelect('COALESCE(SUM(stats.engagements), 0)', 'engagements')
-            .addSelect('COALESCE(SUM(stats.dailyBudget), 0)', 'budget')
             .where('stats.startDate BETWEEN :startDate AND :endDate', {
                 startDate: startDate.toISOString().split('T')[0],
                 endDate: endDate.toISOString().split('T')[0],
-            })
+            });
+
+        if (advertiserId) {
+            qb = qb
+                .innerJoin('stats.ad', 'ad')
+                .innerJoin('ad.adSet', 'adSet')
+                .innerJoin('adSet.campaign', 'campaign')
+                .andWhere('campaign.advertiserId = :advertiserId', { advertiserId });
+        }
+
+        const results = await qb
             .groupBy('stats.startDate')
             .orderBy('stats.startDate', 'ASC')
             .getRawMany();
@@ -239,21 +252,27 @@ export class DailyAdStatsService {
             date: r.date,
             impressions: Number(r.impressions),
             clicks: Number(r.clicks),
-            spent: Number(r.spent),
             engagements: Number(r.engagements),
-            budget: Number(r.budget),
         }));
     }
 
-    async getPricingModeDistribution() {
+    async getPricingModeDistribution(advertiserId?: string) {
         const today = new Date().toISOString().split('T')[0];
-        const results = await this.advertiserAdStatsRepository
+        let qb = this.advertiserAdStatsRepository
             .createQueryBuilder('stats')
             .select("COALESCE(stats.pricingMode, 'Unknown')", 'pricingMode')
             .addSelect('COUNT(DISTINCT stats.adId)', 'count')
-            .where('stats.startDate = :today', { today })
-            .groupBy('stats.pricingMode')
-            .getRawMany();
+            .where('stats.startDate = :today', { today });
+
+        if (advertiserId) {
+            qb = qb
+                .innerJoin('stats.ad', 'ad')
+                .innerJoin('ad.adSet', 'adSet')
+                .innerJoin('adSet.campaign', 'campaign')
+                .andWhere('campaign.advertiserId = :advertiserId', { advertiserId });
+        }
+
+        const results = await qb.groupBy('stats.pricingMode').getRawMany();
 
         return results.map(r => ({
             pricingMode: r.pricingMode || 'Unknown',
@@ -261,27 +280,36 @@ export class DailyAdStatsService {
         }));
     }
 
-    async getTopAds(limit: number = 5, metric: string = 'clicks') {
-        const allowedMetrics = ['clicks', 'impressions', 'spent', 'engagements'];
+    async getTopAds(limit: number = 5, metric: string = 'clicks', advertiserId?: string) {
+        const allowedMetrics = ['clicks', 'impressions', 'engagements'];
         const safeMetric = allowedMetrics.includes(metric) ? metric : 'clicks';
 
-        const results = await this.advertiserAdStatsRepository
+        let qb = this.advertiserAdStatsRepository
             .createQueryBuilder('stats')
             .select('stats.adId', 'adId')
+            .addSelect('campaign.name', 'campaignName')
             .addSelect('SUM(stats.impressions)', 'totalImpressions')
             .addSelect('SUM(stats.clicks)', 'totalClicks')
-            .addSelect('SUM(stats.spent)', 'totalSpent')
             .addSelect('SUM(stats.engagements)', 'totalEngagements')
+            .innerJoin('stats.ad', 'ad')
+            .innerJoin('ad.adSet', 'adSet')
+            .innerJoin('adSet.campaign', 'campaign');
+
+        if (advertiserId) {
+            qb = qb.where('campaign.advertiserId = :advertiserId', { advertiserId });
+        }
+
+        const results = await qb
             .groupBy('stats.adId')
+            .addGroupBy('campaign.name')
             .orderBy(`SUM(stats.${safeMetric})`, 'DESC')
             .limit(limit)
             .getRawMany();
 
         return results.map(r => ({
-            adId: r.adId,
+            campaignName: r.campaignName as string,
             totalImpressions: Number(r.totalImpressions),
             totalClicks: Number(r.totalClicks),
-            totalSpent: Number(r.totalSpent),
             totalEngagements: Number(r.totalEngagements),
         }));
     }

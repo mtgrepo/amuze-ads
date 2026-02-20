@@ -66,8 +66,8 @@ export class DailyAdStatsController {
     }
 
     @Get('admin/overview')
-    async getAdminOverview() {
-        const result = await this.dailyAdStatsService.getAdminOverview();
+    async getAdminOverview(@Query('advertiserId') advertiserId?: string) {
+        const result = await this.dailyAdStatsService.getAdminOverview(advertiserId);
         return {
             data: result,
             message: 'Admin overview retrieved successfully',
@@ -75,8 +75,11 @@ export class DailyAdStatsController {
     }
 
     @Get('admin/trend')
-    async getAdminTrend(@Query('days') days: string = '7') {
-        const result = await this.dailyAdStatsService.getAdminTrend(parseInt(days) || 7);
+    async getAdminTrend(
+        @Query('days') days: string = '7',
+        @Query('advertiserId') advertiserId?: string,
+    ) {
+        const result = await this.dailyAdStatsService.getAdminTrend(parseInt(days) || 7, advertiserId);
         return {
             data: result,
             message: 'Admin trend retrieved successfully',
@@ -84,8 +87,8 @@ export class DailyAdStatsController {
     }
 
     @Get('admin/pricing-distribution')
-    async getPricingDistribution() {
-        const result = await this.dailyAdStatsService.getPricingModeDistribution();
+    async getPricingDistribution(@Query('advertiserId') advertiserId?: string) {
+        const result = await this.dailyAdStatsService.getPricingModeDistribution(advertiserId);
         return {
             data: result,
             message: 'Pricing distribution retrieved successfully',
@@ -95,9 +98,10 @@ export class DailyAdStatsController {
     @Get('admin/top-ads')
     async getTopAds(
         @Query('limit') limit: string = '5',
-        @Query('metric') metric: string = 'clicks'
+        @Query('metric') metric: string = 'clicks',
+        @Query('advertiserId') advertiserId?: string,
     ) {
-        const result = await this.dailyAdStatsService.getTopAds(parseInt(limit) || 5, metric);
+        const result = await this.dailyAdStatsService.getTopAds(parseInt(limit) || 5, metric, advertiserId);
         return {
             data: result,
             message: 'Top ads retrieved successfully',
