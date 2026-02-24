@@ -1,7 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { CampaignService } from "./campaign.service";
-import { Campaign } from "./entities/campaign.entity";
 import { CreateCampaignDTO } from "./dto/create-campaign.dto";
 import { UpdateCampaignDTO } from "./dto/update-campaign.dto";
 
@@ -13,12 +12,22 @@ export class CampaignController {
         private readonly campaignService: CampaignService
     ) {}
 
+    private calculateEndDate(startDate: Date, totalBudget: number, dailyBudget: number): Date {
+        const days = Math.floor(totalBudget / dailyBudget);
+        const endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + days - 1);
+        return endDate;
+    }
+
     @Post()
     async createCampaign(@Body() campaignData: CreateCampaignDTO) {
+        const startDate = new Date(campaignData.startDate);
+        const endDate = this.calculateEndDate(startDate, campaignData.totalBudget, campaignData.dailyBudget);
         const campaign = await this.campaignService.createCampaign({
             ...campaignData,
-            startDate: new Date(campaignData.startDate),
-            endDate: new Date(campaignData.endDate)
+            startDate,
+            endDate,
+            spentAmount: 0,
         });
         return {
             data: campaign,
@@ -46,11 +55,21 @@ export class CampaignController {
 
     @Patch(':id/update')
     async update(@Param('id') id: string, @Body() updateData: UpdateCampaignDTO) {
-        const { startDate, endDate, ...rest } = updateData;
+        const { startDate, ...rest } = updateData;
+
+        let endDate: Date | undefined;
+        if (startDate || updateData.totalBudget !== undefined || updateData.dailyBudget !== undefined) {
+            const existing = await this.campaignService.findCampaignById(id);
+            const resolvedStartDate = startDate ? new Date(startDate) : existing.startDate;
+            const resolvedTotalBudget = updateData.totalBudget ?? existing.totalBudget;
+            const resolvedDailyBudget = updateData.dailyBudget ?? existing.dailyBudget;
+            endDate = this.calculateEndDate(resolvedStartDate, resolvedTotalBudget, resolvedDailyBudget);
+        }
+
         const campaign = await this.campaignService.updateCampaign(id, {
             ...rest,
             ...(startDate && { startDate: new Date(startDate) }),
-            ...(endDate && { endDate: new Date(endDate) })
+            ...(endDate && { endDate }),
         });
         return {
             data: campaign,

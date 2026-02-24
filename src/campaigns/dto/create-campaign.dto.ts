@@ -19,16 +19,8 @@ export class CreateCampaignDTO {
     totalBudget: number
 
     @IsNotEmpty()
-    @IsNumber()
-    spentAmount: number
-
-    @IsNotEmpty()
     @IsDateString()
     startDate: string
-
-    @IsNotEmpty()
-    @IsDateString()
-    endDate: string
 
     @IsNotEmpty()
     @IsString()
