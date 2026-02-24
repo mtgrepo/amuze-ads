@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { AdvertiserAdStats } from "./entities/daily-ad-stats.entity";
 import { Repository } from "typeorm";
 import { Ad } from "src/ads/entities/ad.entity";
+import { Campaign } from "src/campaigns/entities/campaign.entity";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { SystemConfigsService } from "src/system-configs/system-configs.service";
 
@@ -13,6 +14,8 @@ export class DailyAdStatsService {
         private readonly advertiserAdStatsRepository: Repository<AdvertiserAdStats>,
         @InjectRepository(Ad)
         private readonly adRepository: Repository<Ad>,
+        @InjectRepository(Campaign)
+        private readonly campaignRepository: Repository<Campaign>,
         private readonly systemConfigsService: SystemConfigsService,
     ) {}
 
@@ -90,6 +93,20 @@ export class DailyAdStatsService {
             });
 
             await this.advertiserAdStatsRepository.save(dailyStats);
+
+            const campaignMap = new Map<string, Campaign>();
+            for (const ad of activeAds) {
+                const campaign = ad.adSet.campaign;
+                if (!campaignMap.has(campaign.id)) {
+                    campaignMap.set(campaign.id, campaign);
+                }
+            }
+
+            for (const campaign of campaignMap.values()) {
+                campaign.spentAmount = (campaign.spentAmount || 0) + campaign.dailyBudget;
+            }
+
+            await this.campaignRepository.save([...campaignMap.values()]);
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }

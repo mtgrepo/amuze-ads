@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Campaign } from "./entities/campaign.entity";
 import { Repository } from "typeorm";
 import { NotificationService } from "../notifications/notification.service";
+import { Cron, CronExpression } from "@nestjs/schedule";
 
 @Injectable()
 export class CampaignService {
@@ -50,6 +51,20 @@ export class CampaignService {
             }
             Object.assign(campaign, updateData);
             return await this.campaignRepository.save(campaign);
+        } catch (error) {
+            throw new NotAcceptableException(error.message);
+        }
+    }
+
+    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+    async autoStopCampaigns() {
+        try {
+            const campaigns = await this.findCampaignList();
+            for (const campaign of campaigns) {
+                if (campaign.spentAmount >= campaign.totalBudget) {
+                    await this.changeCampaignStatus(campaign.id, "completed");
+                }
+            }
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
