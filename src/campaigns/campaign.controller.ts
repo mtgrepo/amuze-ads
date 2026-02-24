@@ -21,14 +21,15 @@ export class CampaignController {
 
     @Post()
     async createCampaign(@Body() campaignData: CreateCampaignDTO) {
-        const startDate = new Date(campaignData.startDate);
-        const endDate = this.calculateEndDate(startDate, campaignData.totalBudget, campaignData.dailyBudget);
+        const { paymentMethod, ...rest } = campaignData;
+        const startDate = new Date(rest.startDate);
+        const endDate = this.calculateEndDate(startDate, rest.totalBudget, rest.dailyBudget);
         const campaign = await this.campaignService.createCampaign({
-            ...campaignData,
+            ...rest,
             startDate,
             endDate,
             spentAmount: 0,
-        });
+        }, paymentMethod);
         return {
             data: campaign,
             message: 'Campaign created successfully',
@@ -55,7 +56,7 @@ export class CampaignController {
 
     @Patch(':id/update')
     async update(@Param('id') id: string, @Body() updateData: UpdateCampaignDTO) {
-        const { startDate, ...rest } = updateData;
+        const { startDate, paymentMethod, ...rest } = updateData;
 
         let endDate: Date | undefined;
         if (startDate || updateData.totalBudget !== undefined || updateData.dailyBudget !== undefined) {
@@ -70,7 +71,7 @@ export class CampaignController {
             ...rest,
             ...(startDate && { startDate: new Date(startDate) }),
             ...(endDate && { endDate }),
-        });
+        }, paymentMethod);
         return {
             data: campaign,
             message: 'Campaign updated successfully',

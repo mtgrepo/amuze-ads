@@ -4,53 +4,80 @@ import { Campaign } from "./entities/campaign.entity";
 import { Repository } from "typeorm";
 import { NotificationService } from "../notifications/notification.service";
 import { Cron, CronExpression } from "@nestjs/schedule";
+import { TransactionService } from "src/transactions/transaction.service";
+import { Transactions } from "src/transactions/entities/transaction.entity";
 
 @Injectable()
 export class CampaignService {
     constructor (
         @InjectRepository(Campaign)
         private campaignRepository: Repository<Campaign>,
-        private readonly notificationService: NotificationService
+        private readonly notificationService: NotificationService,
+        private readonly transactionService: TransactionService
     ) {}
 
-    async createCampaign(campaignData: Partial<Campaign>): Promise<Campaign> {
+    async createCampaign(campaignData: Partial<Campaign>, paymentMethod: string): Promise<Campaign> {
         try {
             const campaign = await this.campaignRepository.create(campaignData);
-            return await this.campaignRepository.save(campaign);
+            const savedCampaign = await this.campaignRepository.save(campaign);
+            await this.transactionService.createTransaction({
+                advertiserId: campaignData.advertiserId,
+                referenceId: savedCampaign.id,
+                amount: campaignData.totalBudget || 0,
+                paymentMethod,
+                referenceType: "campaign",
+            });
+            return savedCampaign;
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
     }
 
-    async findCampaignList(): Promise<Campaign[]> {
+    async findCampaignList(): Promise<(Campaign & { transaction: Transactions | null })[]> {
         try {
-            const data = await this.campaignRepository.find({ relations: ['advertiser', 'post'] });
-            return data;
+            const campaigns = await this.campaignRepository.find({ relations: ['advertiser', 'post'] });
+            if (campaigns.length === 0) return [];
+            const campaignIds = campaigns.map(c => c.id);
+            const transactions = await this.transactionService.findByReferenceIds(campaignIds, 'campaign');
+            const transactionMap = new Map(transactions.map(t => [t.referenceId, t]));
+            return campaigns.map(campaign =>
+                Object.assign(campaign, { transaction: transactionMap.get(campaign.id) ?? null })
+            );
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
     }
 
-    async findCampaignById(id: string): Promise<Campaign> {
+    async findCampaignById(id: string): Promise<Campaign & { transaction: Transactions | null }> {
         try {
             const campaign = await this.campaignRepository.findOneBy({ id });
             if(!campaign) {
                 throw new Error ("Campaign not found");
             }
-            return campaign;
+            const transaction = await this.transactionService.findByReferenceId(id, 'campaign');
+            return Object.assign(campaign, { transaction });
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
     }
 
-    async updateCampaign(id: string, updateData: Partial<Campaign>): Promise<Campaign> {
+    async updateCampaign(id: string, updateData: Partial<Campaign>, paymentMethod?: string): Promise<Campaign> {
         try {
             const campaign = await this.findCampaignById(id);
             if (!campaign) {
                 throw new Error("Campaign not found");
             }
             Object.assign(campaign, updateData);
-            return await this.campaignRepository.save(campaign);
+            const updatedCampaign = await this.campaignRepository.save(campaign);
+
+            if (updateData.totalBudget !== undefined || paymentMethod !== undefined) {
+                await this.transactionService.updateTransactionByReference(id, 'campaign', {
+                    ...(updateData.totalBudget !== undefined && { amount: updateData.totalBudget }),
+                    ...(paymentMethod !== undefined && { paymentMethod }),
+                });
+            }
+
+            return updatedCampaign;
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }

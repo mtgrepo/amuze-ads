@@ -25,6 +25,10 @@ export class CreateCampaignDTO {
 
     @IsNotEmpty()
     @IsString()
+    paymentMethod: string
+
+    @IsNotEmpty()
+    @IsString()
     status: string
 
     @IsNotEmpty()
