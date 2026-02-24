@@ -1,5 +1,6 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { NotFoundError } from 'rxjs';
 import { AdminUserService } from 'src/admin-users/admin-user.service';
 import { AdvertiserService } from 'src/advertisers/advertiser.service';
 import { comparePassword } from 'src/common/utils/password.utils';
@@ -42,16 +43,16 @@ export class AuthService {
       const user = await this.advertiserUserService.findAdvertiserByEmail(email);
 
       if (!user) {
-        throw new UnauthorizedException('Invalid credentials');
+        throw new NotFoundException('Invalid credentials');
       }
 
       if(!user?.verified || user.status === 'inactive'){
-        throw new UnauthorizedException('User Not Found!');
+        throw new NotFoundException('User Not Found!');
       }
 
       const isPasswordValid = await comparePassword(password, user.password);
       if (!isPasswordValid) {
-        throw new UnauthorizedException('Invalid credentials');
+        throw new NotFoundException('Invalid credentials');
       }
 
       const payload = { sub: user.id, email: user.email };
@@ -67,7 +68,7 @@ export class AuthService {
         },
       };
     } catch (error) {
-      throw new UnauthorizedException(error.message)
+      throw new NotFoundException(error.message)
     }
   }
 
