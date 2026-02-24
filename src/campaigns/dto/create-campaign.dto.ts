@@ -1,4 +1,5 @@
-import { IsDateString, IsIn, IsNotEmpty, IsNumber, IsString } from "class-validator";
+import { Type } from "class-transformer";
+import { IsDateString, IsIn, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
 
 export class CreateCampaignDTO {
 
@@ -18,8 +19,9 @@ export class CreateCampaignDTO {
     @IsNumber()
     totalBudget: number
 
-    @IsNotEmpty()
     @IsNumber()
+    @IsOptional()
+    @Type(() => Number)
     spentAmount: number
 
     @IsNotEmpty()
