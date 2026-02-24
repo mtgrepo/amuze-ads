@@ -1,4 +1,4 @@
-import { Injectable, NotAcceptableException, NotFoundException } from "@nestjs/common";
+import { Injectable, NotAcceptableException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Transactions } from "./entities/transaction.entity";
 import { In, Repository } from "typeorm";
@@ -45,11 +45,12 @@ export class TransactionService {
         updateData: Partial<Transactions>,
     ): Promise<Transactions> {
         try {
-            const transaction = await this.transactionRepository.findOneBy({ referenceId, referenceType });
+            let transaction = await this.transactionRepository.findOneBy({ referenceId, referenceType });
             if (!transaction) {
-                throw new NotFoundException(`Transaction for ${referenceType} ${referenceId} not found`);
+                transaction = this.transactionRepository.create({ referenceId, referenceType, ...updateData });
+            } else {
+                Object.assign(transaction, updateData);
             }
-            Object.assign(transaction, updateData);
             return await this.transactionRepository.save(transaction);
         } catch (error) {
             throw new NotAcceptableException(error.message);

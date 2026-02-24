@@ -72,8 +72,9 @@ export class CampaignService {
 
             if (updateData.totalBudget !== undefined || paymentMethod !== undefined) {
                 await this.transactionService.updateTransactionByReference(id, 'campaign', {
-                    ...(updateData.totalBudget !== undefined && { amount: updateData.totalBudget }),
-                    ...(paymentMethod !== undefined && { paymentMethod }),
+                    advertiserId: updatedCampaign.advertiserId,
+                    amount: updateData.totalBudget ?? updatedCampaign.totalBudget,
+                    paymentMethod: paymentMethod ?? 'cash'
                 });
             }
 
