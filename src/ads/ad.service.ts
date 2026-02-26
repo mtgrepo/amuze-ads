@@ -38,9 +38,25 @@ export class AdService {
         }
     }
 
-    async findAdList(): Promise<Ad[]> {
+    async findAdList(advertiserId?: string): Promise<Ad[]> {
         try {
-            return await this.adRepository.find({ relations: ['adSet', 'adSet.campaign'] });
+            // return await this.adRepository.find({ relations: ['adSet', 'adSet.campaign'], 
+            // where: advertiserId
+            //     ? {
+            //         adSet: {
+            //             campaign: {
+            //                 advertiserId: advertiserId,
+            //             },
+            //         },
+            //     }
+            //     : {},
+            // });
+            return await this.adRepository
+    .createQueryBuilder('ad')
+    .leftJoinAndSelect('ad.adSet', 'adSet')
+    .leftJoinAndSelect('adSet.campaign', 'campaign')
+    .where(advertiserId ? 'campaign.advertiserId = :advertiserId' : '1=1', { advertiserId })
+    .getMany();
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { AdService } from "./ad.service";
 import { JwtAuthGuard } from "src/auth/jwt-auth.guard";
 import { CreateAdSetsDTO } from "src/ad-sets/dto/create-ad-sets.dto";
@@ -19,8 +19,8 @@ export class AdController {
     }
 
     @Get()
-    async findAll() {
-        const ads = await this.adService.findAdList();
+    async findAll(@Query ('advertiserId') advertiserId?: string) {
+        const ads = await this.adService.findAdList(advertiserId);
         return {
             data: ads,
             message: "Ads retrieved successfully"

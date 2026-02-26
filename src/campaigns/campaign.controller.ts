@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { CampaignService } from "./campaign.service";
 import { CreateCampaignDTO } from "./dto/create-campaign.dto";
@@ -37,8 +37,8 @@ export class CampaignController {
     }
 
     @Get()
-    async findCampaigns() {
-        const campaigns = await this.campaignService.findCampaignList();
+    async findCampaigns(@Query ('advertiserId') advertiserId?: string) {
+        const campaigns = await this.campaignService.findCampaignList(advertiserId);
         return {
             data: campaigns,
             message: 'Campaigns found successfully',
