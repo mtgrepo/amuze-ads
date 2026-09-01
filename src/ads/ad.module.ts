@@ -4,6 +4,7 @@ import { Ad } from "./entities/ad.entity";
 import { AdSet } from "src/ad-sets/entities/ad-sets.entity";
 import { AdService } from "./ad.service";
 import { AdController } from "./ad.controller";
+import { AdOwnershipGuard } from "./ad-ownership.guard";
 import { NotificationModule } from "../notifications/notification.module";
 
 @Module({
@@ -11,7 +12,7 @@ import { NotificationModule } from "../notifications/notification.module";
     TypeOrmModule.forFeature([Ad, AdSet]),
     NotificationModule
   ],
-  providers: [AdService],
+  providers: [AdService, AdOwnershipGuard],
   controllers: [AdController]
 })
 export class AdModule {}

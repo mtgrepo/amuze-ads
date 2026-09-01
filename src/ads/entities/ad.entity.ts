@@ -10,17 +10,24 @@ export class Ad {
     @Column({ type: 'varchar', length: 255 })
     status: string
 
+    @Column({ type: 'varchar', length: 50, name: 'ad_type', nullable: true })
+    adType: string
+
+    @Column({ type: 'varchar', length: 50, name: 'placement_key', nullable: true })
+    placementKey: string
+
     @CreateDateColumn({ name: 'created_at' })
     createdAt: Date;
 
     @UpdateDateColumn({ name: 'updated_at' })
     updatedAt: Date;
 
-    @Column({ type: 'uuid', name: 'ad_set_id' })
-    adSetId: string
+    @Column({ type: 'uuid', name: 'ad_set_id', nullable: true })
+    adSetId: string | null
 
     @ManyToOne(() => AdSet, (adSet) => adSet.ads, {
         onDelete: 'CASCADE',
+        nullable: true,
     })
     @JoinColumn({ name: 'ad_set_id' })
     adSet: AdSet;

@@ -34,8 +34,9 @@ import { ScheduleModule } from '@nestjs/schedule';
         password: config.get('DB_PASS'),
         database: config.get('DB_NAME'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
+        migrations: [__dirname + '/migrations/*{.ts,.js}'],
         autoLoadEntities: true,
-        synchronize: true, // ❗ disable in production
+        synchronize: false,
         logging: true,
       })
     }),

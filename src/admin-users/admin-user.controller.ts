@@ -3,8 +3,11 @@ import { AdminUserService } from "./admin-user.service";
 import { CreateAdminUserDTO } from "./dto/create-admin-user.dto";
 import { UpdateAdminUserDTO } from "./dto/update-admin-user.dto";
 import { JwtAuthGuard } from "src/auth/jwt-auth.guard";
+import { RolesGuard } from "src/auth/roles.guard";
+import { Roles } from "src/auth/roles.decorator";
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin')
 @Controller('admin-users')
 export class AdminUserController {
     constructor(private readonly adminUserService: AdminUserService) {}

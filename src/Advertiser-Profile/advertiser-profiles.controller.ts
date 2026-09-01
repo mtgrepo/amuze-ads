@@ -2,9 +2,12 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, UseInterc
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { AdvertiserProfilesService } from './advertiser-profiles.service';
+import { AdvertiserProfileOwnershipGuard } from './advertiser-profile-ownership.guard';
 import { CreateAdvertiserProfileDto } from './dto/create-advertiser-profile.dto';
 import { UpdateAdvertiserProfileDto } from './dto/update-advertiser-profile.dto';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import { CurrentUser } from 'src/auth/current-user.decorator';
+import type { CurrentUserPayload } from 'src/auth/current-user.decorator';
 import { MinioService } from 'src/minio/minio.service';
 
 @UseGuards(JwtAuthGuard)
@@ -20,12 +23,16 @@ export class AdvertiserProfilesController {
   async create(
     @Body() createAdvertiserProfileDto: CreateAdvertiserProfileDto,
     @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: CurrentUserPayload,
   ) {
     const folder = `advertiser-profiles/${createAdvertiserProfileDto.business_name}`;
     const fileName = await this.minioService.upload(file, folder);
 
     const advertiserProfile = await this.advertiserProfilesService.createAdvertiserProfile(
-      createAdvertiserProfileDto,
+      {
+        ...createAdvertiserProfileDto,
+        advertiser_id: user.role === 'admin' ? createAdvertiserProfileDto.advertiser_id : user.id,
+      },
       fileName,
     );
 
@@ -36,8 +43,10 @@ export class AdvertiserProfilesController {
   }
 
   @Get()
-  async findAll() {
-    const profiles = await this.advertiserProfilesService.findAdvertiserProfiles();
+  async findAll(@CurrentUser() user: CurrentUserPayload) {
+    const profiles = await this.advertiserProfilesService.findAdvertiserProfiles(
+      user.role === 'admin' ? undefined : user.id,
+    );
 
     return {
       data: profiles,
@@ -45,6 +54,7 @@ export class AdvertiserProfilesController {
     }
   }
 
+  @UseGuards(AdvertiserProfileOwnershipGuard)
   @Get(':id')
   async findOne(@Param('id') id: string) {
     const profile = await this.advertiserProfilesService.findOne(id);
@@ -55,6 +65,7 @@ export class AdvertiserProfilesController {
     }
   }
 
+  @UseGuards(AdvertiserProfileOwnershipGuard)
   @Patch(':id')
   @UseInterceptors(FileInterceptor('photo', { storage: memoryStorage() }))
   async update(
@@ -82,6 +93,7 @@ export class AdvertiserProfilesController {
     };
   }
 
+  @UseGuards(AdvertiserProfileOwnershipGuard)
   @Delete(':id')
   async remove(@Param('id') id: string) {
     const profile = await this.advertiserProfilesService.findOne(id);
