@@ -131,4 +131,28 @@ export class CampaignService {
             throw new NotAcceptableException(error.message);
         }
     }
+
+    async approveCampaign(id: string): Promise<Campaign> {
+        try {
+            const campaign = await this.findCampaignById(id);
+            if(campaign.status !== 'pending') {
+                throw new NotAcceptableException('Only pending campaigns can be approved');
+            }
+            return this.changeCampaignStatus(id, 'active')
+        } catch (error) {
+            throw new NotAcceptableException(error.message);
+        }
+    }
+
+    async rejectCampaign(id: string): Promise<Campaign> {
+        try {
+            const campaign = await this.findCampaignById(id);
+            if(campaign.status !== 'pending') {
+                throw new NotAcceptableException('Only pending campaigns can be approved');
+            }
+            return this.changeCampaignStatus(id, 'rejected')
+        } catch (error) {
+            throw new NotAcceptableException(error.message);
+        }
+    }
 }
