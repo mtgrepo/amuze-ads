@@ -38,12 +38,9 @@ export class AdService {
         }
     }
 
-    async findAdList(advertiserId?: string): Promise<Ad[]> {
+    async findAdList(): Promise<Ad[]> {
         try {
-            return await this.adRepository.find({
-                where: advertiserId ? { adSet: { campaign: { advertiserId } } } : {},
-                relations: ['adSet', 'adSet.campaign'],
-            });
+            return await this.adRepository.find({ relations: ['adSet', 'adSet.campaign'] });
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
@@ -75,22 +72,6 @@ export class AdService {
             if (error instanceof NotFoundException) throw error;
             throw new NotAcceptableException(error.message);
         }
-    }
-
-    async approveAd(id: string): Promise<Ad> {
-        const ad = await this.findAdById(id);
-        if (ad.status !== 'pending') {
-            throw new NotAcceptableException('Only pending ads can be approved');
-        }
-        return this.updateStatus(id, 'active');
-    }
-
-    async rejectAd(id: string): Promise<Ad> {
-        const ad = await this.findAdById(id);
-        if (ad.status !== 'pending') {
-            throw new NotAcceptableException('Only pending ads can be rejected');
-        }
-        return this.updateStatus(id, 'rejected');
     }
 
     async updateStatus(id: string, status: string): Promise<Ad> {

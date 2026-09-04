@@ -1,13 +1,10 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "src/auth/jwt-auth.guard";
-import { RolesGuard } from "src/auth/roles.guard";
-import { Roles } from "src/auth/roles.decorator";
 import { SystemConfigsService } from "./system-configs.service";
 import { CreateSystemConfigDTO } from "./dto/create-system-config.dto";
 import { UpdateSystemConfigDTO } from "./dto/update-system-config.dto";
 
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
+@UseGuards(JwtAuthGuard)
 @Controller('system-configs')
 export class SystemConfigsController {
     constructor(private readonly systemConfigsService: SystemConfigsService) {}

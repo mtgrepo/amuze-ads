@@ -33,12 +33,9 @@ export class CampaignService {
         }
     }
 
-    async findCampaignList(advertiserId?: string): Promise<(Campaign & { transaction: Transactions | null })[]> {
+    async findCampaignList(): Promise<(Campaign & { transaction: Transactions | null })[]> {
         try {
-            const campaigns = await this.campaignRepository.find({
-                where: advertiserId ? { advertiserId } : {},
-                relations: ['advertiser', 'post'],
-            });
+            const campaigns = await this.campaignRepository.find({ relations: ['advertiser', 'post'] });
             if (campaigns.length === 0) return [];
             const campaignIds = campaigns.map(c => c.id);
             const transactions = await this.transactionService.findByReferenceIds(campaignIds, 'campaign');
@@ -85,22 +82,6 @@ export class CampaignService {
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
-    }
-
-    async approveCampaign(id: string): Promise<Campaign> {
-        const campaign = await this.findCampaignById(id);
-        if (campaign.status !== 'pending') {
-            throw new NotAcceptableException('Only pending campaigns can be approved');
-        }
-        return this.changeCampaignStatus(id, 'active');
-    }
-
-    async rejectCampaign(id: string): Promise<Campaign> {
-        const campaign = await this.findCampaignById(id);
-        if (campaign.status !== 'pending') {
-            throw new NotAcceptableException('Only pending campaigns can be rejected');
-        }
-        return this.changeCampaignStatus(id, 'rejected');
     }
 
     @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)

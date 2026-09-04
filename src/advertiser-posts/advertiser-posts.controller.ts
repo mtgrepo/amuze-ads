@@ -6,19 +6,15 @@ import {
   Patch,
   Param,
   Delete,
-  ForbiddenException,
   UseGuards,
   UseInterceptors,
   UploadedFile,
   Query,
 } from '@nestjs/common';
 import { AdvertiserPostsService } from './advertiser-posts.service';
-import { AdvertiserPostOwnershipGuard } from './advertiser-post-ownership.guard';
 import { CreateAdvertiserPostDto } from './dto/create-advertiser-post.dto';
 import { UpdateAdvertiserPostDto } from './dto/update-advertiser-post.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { CurrentUser } from '../auth/current-user.decorator';
-import type { CurrentUserPayload } from '../auth/current-user.decorator';
 import { MinioService } from '../minio/minio.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -36,16 +32,12 @@ export class AdvertiserPostsController {
   async create(
     @Body() createAdvertiserPostDto: CreateAdvertiserPostDto,
     @UploadedFile() file: Express.Multer.File,
-    @CurrentUser() user: CurrentUserPayload,
   ) {
     const folder = `advertiser-posts/${createAdvertiserPostDto.title}`;
     const fileName = await this.minioService.upload(file, folder);
 
     const advertiserPost = await this.advertiserPostsService.create(
-      {
-        ...createAdvertiserPostDto,
-        advertiser_id: user.role === 'admin' ? createAdvertiserPostDto.advertiser_id : user.id,
-      },
+      createAdvertiserPostDto,
       fileName,
     );
 
@@ -56,10 +48,8 @@ export class AdvertiserPostsController {
   }
 
   @Get()
-  async findAll(@CurrentUser() user: CurrentUserPayload, @Query('advertiser_id') advertiser_id?: string) {
-    const posts = await this.advertiserPostsService.findAll(
-      user.role === 'admin' ? advertiser_id : user.id,
-    );
+  async findAll(@Query('advertiser_id') advertiser_id?: string) {
+    const posts = await this.advertiserPostsService.findAll(advertiser_id);
 
     return {
       data: posts,
@@ -67,7 +57,6 @@ export class AdvertiserPostsController {
     };
   }
 
-  @UseGuards(AdvertiserPostOwnershipGuard)
   @Get(':id')
   async findOne(@Param('id') id: string) {
     const post = await this.advertiserPostsService.findOne(id);
@@ -79,11 +68,7 @@ export class AdvertiserPostsController {
   }
 
   @Get('advertiser/:id')
-  async findByAdvertiser(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
-    if (user.role !== 'admin' && id !== user.id) {
-      throw new ForbiddenException('You do not have permission to access these posts');
-    }
-
+  async findByAdvertiser(@Param('id') id: string) {
     const posts = await this.advertiserPostsService.findByAdvertiserId(id);
 
     return {
@@ -92,7 +77,6 @@ export class AdvertiserPostsController {
     };
   }
 
-  @UseGuards(AdvertiserPostOwnershipGuard)
   @Patch(':id/status')
   async updateStatus(
     @Param('id') id: string,
@@ -106,7 +90,6 @@ export class AdvertiserPostsController {
     }
   }
 
-  @UseGuards(AdvertiserPostOwnershipGuard)
   @Patch(':id')
   @UseInterceptors(FileInterceptor('photo', { storage: memoryStorage() }))
   async update(
@@ -136,7 +119,6 @@ export class AdvertiserPostsController {
     };
   }
 
-  @UseGuards(AdvertiserPostOwnershipGuard)
   @Delete(':id')
   async remove(@Param('id') id: string) {
     const post = await this.advertiserPostsService.findOne(id);
