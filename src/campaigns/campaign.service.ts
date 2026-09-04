@@ -33,9 +33,12 @@ export class CampaignService {
         }
     }
 
-    async findCampaignList(): Promise<(Campaign & { transaction: Transactions | null })[]> {
+    async findCampaignList(advertiserId?: string): Promise<(Campaign & { transaction: Transactions | null })[]> {
         try {
-            const campaigns = await this.campaignRepository.find({ relations: ['advertiser', 'post'] });
+            const campaigns = await this.campaignRepository.find({
+                where: advertiserId ? { advertiserId } : {},
+                relations: ['advertiser', 'post'],
+            });
             if (campaigns.length === 0) return [];
             const campaignIds = campaigns.map(c => c.id);
             const transactions = await this.transactionService.findByReferenceIds(campaignIds, 'campaign');
