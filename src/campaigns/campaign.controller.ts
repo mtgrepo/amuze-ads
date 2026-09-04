@@ -6,8 +6,12 @@ import { CampaignOwnershipGuard } from "./campaign-ownership.guard";
 import { CampaignService } from "./campaign.service";
 import { CreateCampaignDTO } from "./dto/create-campaign.dto";
 import { UpdateCampaignDTO } from "./dto/update-campaign.dto";
+import { RolesGuard } from "../auth/roles.guard";
+import { Roles } from "../auth/roles.decorator";
+import { CAMPAIGN_SELF_SERVICE_TRANSITIONS } from "./campaign-status";
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin')
 @Controller('campaigns')
 export class CampaignController {
 
@@ -86,11 +90,40 @@ export class CampaignController {
 
     @UseGuards(CampaignOwnershipGuard)
     @Patch(':id/change-status')
-    async changeStatus(@Param('id') id: string, @Body('status') status: string) {
+    async changeStatus(@Param('id') id: string, @Body('status') status: string, @CurrentUser() user: CurrentUserPayload) {
+        if (user.role !== 'admin') {
+            const existing = await this.campaignService.findCampaignById(id);
+            const allowed = CAMPAIGN_SELF_SERVICE_TRANSITIONS[existing.status] ?? [];
+            if (!allowed.includes(status)) {
+                throw new ForbiddenException(`You cannot change a campaign from "${existing.status}" to "${status}"`);
+            }
+        }
         const campaign = await this.campaignService.changeCampaignStatus(id, status);
         return {
             data: campaign,
             message: 'Campaign status changed successfully',
+        }
+    }
+
+        @UseGuards(RolesGuard)
+    @Roles('admin')
+    @Post(':id/approve')
+    async approve(@Param('id') id: string) {
+        const campaign = await this.campaignService.approveCampaign(id);
+        return {
+            data: campaign,
+            message: 'Campaign approved successfully',
+        }
+    }
+
+    @UseGuards(RolesGuard)
+    @Roles('admin')
+    @Post(':id/reject')
+    async reject(@Param('id') id: string) {
+        const campaign = await this.campaignService.rejectCampaign(id);
+        return {
+            data: campaign,
+            message: 'Campaign rejected successfully',
         }
     }
 
