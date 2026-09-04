@@ -1,6 +1,9 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
 import { AdService } from "./ad.service";
+import { AdOwnershipGuard } from "./ad-ownership.guard";
 import { JwtAuthGuard } from "src/auth/jwt-auth.guard";
+import { CurrentUser } from "src/auth/current-user.decorator";
+import type { CurrentUserPayload } from "src/auth/current-user.decorator";
 import { CreateAdSetsDTO } from "src/ad-sets/dto/create-ad-sets.dto";
 import { UpdateAdSetsDTO } from "src/ad-sets/dto/update-ad-sets.dto";
 
@@ -19,14 +22,15 @@ export class AdController {
     }
 
     @Get()
-    async findAll() {
-        const ads = await this.adService.findAdList();
+    async findAll(@CurrentUser() user: CurrentUserPayload) {
+        const ads = await this.adService.findAdList(user.role === 'admin' ? undefined : user.id);
         return {
             data: ads,
             message: "Ads retrieved successfully"
         };
     }
 
+    @UseGuards(AdOwnershipGuard)
     @Get(':id')
     async findOne(@Param('id') id: string) {
         const ad = await this.adService.findAdById(id);
@@ -36,6 +40,7 @@ export class AdController {
         };
     }
 
+    @UseGuards(AdOwnershipGuard)
     @Patch(':id')
     async update(@Param('id') id: string, @Body() dto: UpdateAdSetsDTO) {
         const ad = await this.adService.updateAd(id, dto);
@@ -45,6 +50,7 @@ export class AdController {
         };
     }
 
+    @UseGuards(AdOwnershipGuard)
     @Patch(':id/status')
     async updateStatus(@Param('id') id: string, @Body('status') status: string) {
         const ad = await this.adService.updateStatus(id, status);

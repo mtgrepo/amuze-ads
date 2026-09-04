@@ -38,9 +38,12 @@ export class AdService {
         }
     }
 
-    async findAdList(): Promise<Ad[]> {
+    async findAdList(advertiserId?: string): Promise<Ad[]> {
         try {
-            return await this.adRepository.find({ relations: ['adSet', 'adSet.campaign'] });
+            return await this.adRepository.find({
+                where: advertiserId ? { adSet: { campaign: { advertiserId } } } : {},
+                relations: ['adSet', 'adSet.campaign'],
+            });
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
