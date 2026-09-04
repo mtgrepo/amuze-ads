@@ -17,6 +17,7 @@ import { AdModule } from './ads/ad.module';
 import { DailyAdStatsModule } from './daily-ad-stats/daily-ad-stats.module';
 import { CampaignModule } from './campaigns/campaign.module';
 import { AdSetsModule } from './ad-sets/ad-sets.module';
+import { AdCreativeModule } from './ad-creatives/ad-creative.module';
 import { PresignedUrlInterceptor } from './common/interceptors/presigned-url.interceptor';
 import { ScheduleModule } from '@nestjs/schedule';
 
@@ -52,7 +53,8 @@ import { ScheduleModule } from '@nestjs/schedule';
     AdModule,
     DailyAdStatsModule,
     CampaignModule,
-    AdSetsModule
+    AdSetsModule,
+    AdCreativeModule
   ],
   controllers: [AppController],
   providers: [
