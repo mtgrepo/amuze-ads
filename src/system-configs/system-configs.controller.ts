@@ -3,8 +3,11 @@ import { JwtAuthGuard } from "src/auth/jwt-auth.guard";
 import { SystemConfigsService } from "./system-configs.service";
 import { CreateSystemConfigDTO } from "./dto/create-system-config.dto";
 import { UpdateSystemConfigDTO } from "./dto/update-system-config.dto";
+import { RolesGuard } from "src/auth/roles.guard";
+import { Roles } from "src/auth/roles.decorator";
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin')
 @Controller('system-configs')
 export class SystemConfigsController {
     constructor(private readonly systemConfigsService: SystemConfigsService) {}
