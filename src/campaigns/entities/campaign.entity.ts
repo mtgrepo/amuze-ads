@@ -32,6 +32,9 @@ export class Campaign {
     @Column({ type: 'varchar', length: 255 })
     status: string;
 
+    @Column({ type: 'varchar', length: 50, name: 'model_type', default: 'display_ads' })
+    modelType: string
+
     @CreateDateColumn({ name: 'created_at' })
     createdAt: Date;
 
