@@ -3,12 +3,16 @@ import { JwtAuthGuard } from "src/auth/jwt-auth.guard";
 import { DailyAdStatsService } from "./daily-ad-stats.service";
 import { CreateDailyAdStatsDTO } from "./dto/create-daily-ad-stats.dto";
 import { AdvertiserAdStats } from "./entities/daily-ad-stats.entity";
+import { RolesGuard } from "src/auth/roles.guard";
+import { Roles } from "src/auth/roles.decorator";
 
 @UseGuards(JwtAuthGuard)
 @Controller('daily-ad-stats')
 export class DailyAdStatsController {
     constructor(private readonly dailyAdStatsService: DailyAdStatsService) {}
 
+    @UseGuards(RolesGuard)
+    @Roles('admin')
     @Post()
     async create(@Body() adStatsData: CreateDailyAdStatsDTO) {
         const adStats = await this.dailyAdStatsService.create({
@@ -21,6 +25,8 @@ export class DailyAdStatsController {
         };
     }
 
+    @UseGuards(RolesGuard)
+    @Roles('admin')
     @Patch('ID/:id/increase-stats')
     async increaseStats(@Param('id') id: string, @Body() statsToIncrement: Partial<AdvertiserAdStats>) {
         const updatedStats = await this.dailyAdStatsService.incrementStats(id, statsToIncrement);
