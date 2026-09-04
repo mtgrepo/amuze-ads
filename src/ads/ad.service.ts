@@ -77,6 +77,22 @@ export class AdService {
         }
     }
 
+    async approveAd(id: string): Promise<Ad> {
+        const ad = await this.findAdById(id);
+        if (ad.status !== 'pending') {
+            throw new NotAcceptableException('Only pending ads can be approved');
+        }
+        return this.updateStatus(id, 'active');
+    }
+
+    async rejectAd(id: string): Promise<Ad> {
+        const ad = await this.findAdById(id);
+        if (ad.status !== 'pending') {
+            throw new NotAcceptableException('Only pending ads can be rejected');
+        }
+        return this.updateStatus(id, 'rejected');
+    }
+
     async updateStatus(id: string, status: string): Promise<Ad> {
         try {
             const ad = await this.findAdById(id);
