@@ -36,9 +36,9 @@ export class CreateCampaignDTO {
     @IsString()
     status: string
 
-    @IsNotEmpty()
+    @IsOptional()
     @IsString()
-    advertiserId: string
+    advertiserId?: string
 
     @IsOptional()
     @IsString()
