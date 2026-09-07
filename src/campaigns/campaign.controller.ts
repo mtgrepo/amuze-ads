@@ -1,4 +1,6 @@
-import { Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { memoryStorage } from "multer";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { CurrentUser } from "../auth/current-user.decorator";
 import type { CurrentUserPayload } from "../auth/current-user.decorator";
@@ -6,6 +8,7 @@ import { CampaignOwnershipGuard } from "./campaign-ownership.guard";
 import { CampaignService } from "./campaign.service";
 import { CreateCampaignDTO } from "./dto/create-campaign.dto";
 import { UpdateCampaignDTO } from "./dto/update-campaign.dto";
+import { CreateFullCampaignDto } from "./dto/create-full-campaign.dto";
 import { RolesGuard } from "../auth/roles.guard";
 import { Roles } from "../auth/roles.decorator";
 import { CAMPAIGN_SELF_SERVICE_TRANSITIONS } from "./campaign-status";
@@ -123,6 +126,51 @@ export class CampaignController {
         return {
             data: campaign,
             message: 'Campaign rejected successfully',
+        }
+    }
+
+    @Post('full')
+    @UseInterceptors(FileInterceptor('asset', { storage: memoryStorage() }))
+    async createFullCampaign(
+        @Body() dto: CreateFullCampaignDto,
+        @UploadedFile() file: Express.Multer.File,
+        @CurrentUser() user: CurrentUserPayload,
+    ) {
+        const advertiserId = user.role === 'admin' ? dto.advertiserId : user.id;
+        if (!advertiserId) {
+            throw new BadRequestException('advertiserId is required');
+        }
+
+        const startDate = new Date(dto.startDate);
+        const dailyBudget = Number(dto.dailyBudget);
+        const totalBudget = Number(dto.totalBudget);
+        const endDate = this.calculateEndDate(startDate, totalBudget, dailyBudget);
+
+        const result = await this.campaignService.createFullCampaign({
+            advertiserId,
+            role: user.role,
+            name: dto.name,
+            objective: dto.objective,
+            dailyBudget,
+            totalBudget,
+            startDate,
+            endDate,
+            paymentMethod: dto.paymentMethod,
+            creativeName: dto.creativeName,
+            assetType: dto.assetType,
+            destinationLink: dto.destinationLink,
+            ageMin: Number(dto.ageMin),
+            ageMax: Number(dto.ageMax),
+            gender: dto.gender,
+            location: dto.location,
+            category: dto.category,
+            adType: dto.adType,
+            placementKey: dto.placementKey,
+        }, file);
+
+        return {
+            data: result,
+            message: 'Campaign created successfully',
         }
     }
 
