@@ -38,7 +38,7 @@ export class AdService {
         try {
             return await this.adRepository.find({
                 where: advertiserId ? { adSet: { campaign: { advertiserId } } } : {},
-                relations: ['adSet', 'adSet.campaign'],
+                relations: ['adSet', 'adSet.campaign', 'adCreative'],
             });
         } catch (error) {
             throw new NotAcceptableException(error.message);
@@ -49,7 +49,7 @@ export class AdService {
         try {
             const ad = await this.adRepository.findOne({
                 where: { id },
-                relations: ['adSet', 'adSet.campaign'],
+                relations: ['adSet', 'adSet.campaign', 'adCreative'],
             });
             if (!ad) {
                 throw new NotFoundException('Ad not found');
