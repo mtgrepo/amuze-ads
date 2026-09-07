@@ -1,11 +1,37 @@
 import { Injectable, NotAcceptableException } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
+import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { Campaign } from "./entities/campaign.entity";
-import { Repository } from "typeorm";
+import { DataSource, Repository } from "typeorm";
 import { NotificationService } from "../notifications/notification.service";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { TransactionService } from "src/transactions/transaction.service";
 import { Transactions } from "src/transactions/entities/transaction.entity";
+import { MinioService } from "src/minio/minio.service";
+import { AdCreative } from "src/ad-creatives/entities/ad-creative.entity";
+import { AdSet } from "src/ad-sets/entities/ad-sets.entity";
+import { Ad } from "src/ads/entities/ad.entity";
+
+export interface CreateFullCampaignInput {
+    advertiserId: string;
+    role: string;
+    name: string;
+    objective: string;
+    dailyBudget: number;
+    totalBudget: number;
+    startDate: Date;
+    endDate: Date;
+    paymentMethod: string;
+    creativeName: string;
+    assetType: string;
+    destinationLink: string;
+    ageMin: number;
+    ageMax: number;
+    gender: string;
+    location: string;
+    category: string;
+    adType: string;
+    placementKey: string;
+}
 
 @Injectable()
 export class CampaignService {
@@ -13,7 +39,10 @@ export class CampaignService {
         @InjectRepository(Campaign)
         private campaignRepository: Repository<Campaign>,
         private readonly notificationService: NotificationService,
-        private readonly transactionService: TransactionService
+        private readonly transactionService: TransactionService,
+        private readonly minioService: MinioService,
+        @InjectDataSource()
+        private readonly dataSource: DataSource,
     ) {}
 
     async createCampaign(campaignData: Partial<Campaign>, paymentMethod: string): Promise<Campaign> {
@@ -151,6 +180,71 @@ export class CampaignService {
                 throw new NotAcceptableException('Only pending campaigns can be approved');
             }
             return this.changeCampaignStatus(id, 'rejected')
+        } catch (error) {
+            throw new NotAcceptableException(error.message);
+        }
+    }
+
+    async createFullCampaign(input: CreateFullCampaignInput, file: Express.Multer.File) {
+        try {
+            const assetPath = await this.minioService.upload(file, `ad-creatives/${input.advertiserId}`);
+            const isAdmin = input.role === 'admin';
+
+            return await this.dataSource.transaction(async (manager) => {
+                const creative = manager.create(AdCreative, {
+                    advertiserId: input.advertiserId,
+                    name: input.creativeName,
+                    assetType: input.assetType,
+                    asset: assetPath,
+                    destinationLink: input.destinationLink,
+                    status: 'active',
+                });
+                const savedCreative = await manager.save(creative);
+
+                const campaign = manager.create(Campaign, {
+                    advertiserId: input.advertiserId,
+                    name: input.name,
+                    objective: input.objective,
+                    dailyBudget: input.dailyBudget,
+                    totalBudget: input.totalBudget,
+                    spentAmount: 0,
+                    startDate: input.startDate,
+                    endDate: input.endDate,
+                    status: isAdmin ? 'active' : 'pending',
+                    modelType: 'display_ads',
+                });
+                const savedCampaign = await manager.save(campaign);
+
+                const adSet = manager.create(AdSet, {
+                    campaignId: savedCampaign.id,
+                    ageMin: input.ageMin,
+                    ageMax: input.ageMax,
+                    gender: input.gender,
+                    location: input.location,
+                    category: input.category,
+                });
+                const savedAdSet = await manager.save(adSet);
+
+                const ad = manager.create(Ad, {
+                    adSetId: savedAdSet.id,
+                    adCreativeId: savedCreative.id,
+                    adType: input.adType,
+                    placementKey: input.placementKey,
+                    status: isAdmin ? 'active' : 'pending',
+                });
+                const savedAd = await manager.save(ad);
+
+                const transaction = manager.create(Transactions, {
+                    advertiserId: input.advertiserId,
+                    paymentMethod: input.paymentMethod,
+                    amount: input.totalBudget,
+                    referenceType: 'campaign',
+                    referenceId: savedCampaign.id,
+                });
+                await manager.save(transaction);
+
+                return { campaign: savedCampaign, adSet: savedAdSet, ad: savedAd, adCreative: savedCreative };
+            });
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
