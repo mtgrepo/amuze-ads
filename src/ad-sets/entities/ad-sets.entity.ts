@@ -28,7 +28,7 @@ export class AdSet {
     @UpdateDateColumn({ name: 'updated_at' })
     updatedAt: Date;
 
-    @Column({ type: 'uuid', name: 'campaign_id' })
+    @Column({ type: 'uuid', name: 'campaign_id', unique: true })
     campaignId: string
 
     @ManyToOne(() => Campaign, (campaign) => campaign.adSets, {
