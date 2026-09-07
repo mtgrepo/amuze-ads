@@ -50,14 +50,15 @@ export class Campaign {
     @JoinColumn({ name: 'advertiser_id' })
     advertiser: Advertiser;
 
-    @Column({ type: 'uuid', name: 'post_id' })
-    postId: string
+    @Column({ type: 'uuid', name: 'post_id', nullable: true })
+    postId: string | null
 
     @ManyToOne(() => AdvertiserPost, (post) => post.campaigns, {
         onDelete: 'CASCADE',
+        nullable: true,
     })
     @JoinColumn({ name: 'post_id' })
-    post: AdvertiserPost;
+    post: AdvertiserPost | null;
 
     @OneToMany(() => AdSet, (adSet) => adSet.campaign)
     adSets: AdSet[]
