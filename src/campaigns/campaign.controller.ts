@@ -10,8 +10,7 @@ import { RolesGuard } from "../auth/roles.guard";
 import { Roles } from "../auth/roles.decorator";
 import { CAMPAIGN_SELF_SERVICE_TRANSITIONS } from "./campaign-status";
 
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
+@UseGuards(JwtAuthGuard)
 @Controller('campaigns')
 export class CampaignController {
 
@@ -105,7 +104,7 @@ export class CampaignController {
         }
     }
 
-        @UseGuards(RolesGuard)
+    @UseGuards(RolesGuard)
     @Roles('admin')
     @Post(':id/approve')
     async approve(@Param('id') id: string) {
