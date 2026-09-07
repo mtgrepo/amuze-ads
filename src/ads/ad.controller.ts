@@ -7,7 +7,7 @@ import { RolesGuard } from "src/auth/roles.guard";
 import { Roles } from "src/auth/roles.decorator";
 import { CurrentUser } from "src/auth/current-user.decorator";
 import type { CurrentUserPayload } from "src/auth/current-user.decorator";
-import { CreateAdSetsDTO } from "src/ad-sets/dto/create-ad-sets.dto";
+import { CreateAdDto } from "./dto/create-ad.dto";
 import { UpdateAdSetsDTO } from "src/ad-sets/dto/update-ad-sets.dto";
 
 @UseGuards(JwtAuthGuard)
@@ -16,7 +16,7 @@ export class AdController {
     constructor(private readonly adService: AdService) {}
 
     @Post()
-    async create(@Body() dto: CreateAdSetsDTO) {
+    async create(@Body() dto: CreateAdDto) {
         const ad = await this.adService.createAd(dto);
         return {
             data: ad,

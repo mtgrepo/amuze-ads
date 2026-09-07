@@ -1,12 +1,22 @@
-import { IsNotEmpty, IsString } from "class-validator";
+import { IsIn, IsNotEmpty, IsString } from "class-validator";
 
-export class CreateAdDTO {
+const AD_TYPES = ['banner', 'interstitial', 'reward_video', 'native', 'splash'];
+const PLACEMENT_KEYS = ['home_page', 'comic', 'novel', 'story_tellings', 'magazine'];
+
+export class CreateAdDto {
     @IsNotEmpty()
     @IsString()
-    adSetId: string;
+    adSetId: string
 
     @IsNotEmpty()
     @IsString()
-    status: string;
+    adCreativeId: string
 
+    @IsNotEmpty()
+    @IsIn(AD_TYPES)
+    adType: string
+
+    @IsNotEmpty()
+    @IsIn(PLACEMENT_KEYS)
+    placementKey: string
 }

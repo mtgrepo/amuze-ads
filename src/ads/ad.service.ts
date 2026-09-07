@@ -3,8 +3,8 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Ad } from "./entities/ad.entity";
 import { Repository } from "typeorm";
 import { AdSet } from "src/ad-sets/entities/ad-sets.entity";
-import { CreateAdSetsDTO } from "src/ad-sets/dto/create-ad-sets.dto";
 import { UpdateAdSetsDTO } from "src/ad-sets/dto/update-ad-sets.dto";
+import { CreateAdDto } from "./dto/create-ad.dto";
 import { NotificationService } from "../notifications/notification.service";
 
 @Injectable()
@@ -17,22 +17,18 @@ export class AdService {
         private readonly notificationService: NotificationService
     ) {}
 
-    async createAd(dto: CreateAdSetsDTO): Promise<Ad> {
+    async createAd(dto: CreateAdDto): Promise<Ad> {
         try {
-            const adSet = this.adSetRepository.create(dto);
-            const savedAdSet = await this.adSetRepository.save(adSet);
-
-            const ad = this.adRepository.create({ adSetId: savedAdSet.id, status: 'pending' });
+            const ad = this.adRepository.create({
+                adSetId: dto.adSetId,
+                adCreativeId: dto.adCreativeId,
+                adType: dto.adType,
+                placementKey: dto.placementKey,
+                status: 'pending',
+            });
             const savedAd = await this.adRepository.save(ad);
 
-            const adData = await this.adRepository.findOne({
-                where: { id: savedAd.id },
-                relations: ['adSet', 'adSet.campaign'],
-            });
-            if (!adData) {
-                throw new NotFoundException('Ad not found');
-            }
-            return adData;
+            return savedAd;
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
