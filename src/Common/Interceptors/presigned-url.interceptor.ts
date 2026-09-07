@@ -34,7 +34,7 @@ export class PresignedUrlInterceptor implements NestInterceptor {
     const promises: Promise<void>[] = [];
 
     for (const key of Object.keys(obj)) {
-      if (key === 'photo' && typeof obj[key] === 'string' && obj[key]) {
+      if ((key === 'photo' || key === 'asset') && typeof obj[key] === 'string' && obj[key]) {
         promises.push(
           this.minioService.getPresignedUrl(obj[key]).then((url) => {
             obj[key] = url;
