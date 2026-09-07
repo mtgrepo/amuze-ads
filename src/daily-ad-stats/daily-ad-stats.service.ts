@@ -7,6 +7,13 @@ import { Campaign } from "src/campaigns/entities/campaign.entity";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { SystemConfigsService } from "src/system-configs/system-configs.service";
 
+function getLocalDateString(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 @Injectable()
 export class DailyAdStatsService {
     constructor(
@@ -35,10 +42,10 @@ export class DailyAdStatsService {
             .createQueryBuilder('ad')
             .innerJoinAndSelect('ad.adSet', 'adSet')
             .innerJoinAndSelect('adSet.campaign', 'campaign')
-            .innerJoinAndSelect('campaign.post', 'post')
+            .leftJoinAndSelect('campaign.post', 'post')
             .where('ad.status = :adStatus', { adStatus: 'active' })
             .andWhere('campaign.status = :campaignStatus', { campaignStatus: 'active' })
-            .andWhere('post.status = :postStatus', { postStatus: 'active' })
+            .andWhere('(campaign.postId IS NULL OR post.status = :postStatus)', { postStatus: 'active' })
             .getMany();
 
             const pricingConfigs = await this.systemConfigsService.getByCategory('pricing');
@@ -114,13 +121,12 @@ export class DailyAdStatsService {
 
     async incrementStats(adId: string, statsToIncrement: Partial<AdvertiserAdStats>) {
         try {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            const today = getLocalDateString(new Date());
 
             const stats = await this.advertiserAdStatsRepository
                 .createQueryBuilder('stats')
                 .where('stats.ad_id = :adId', { adId })
-                .andWhere('stats.stat_date = :today', { today: today.toISOString().split('T')[0] })
+                .andWhere('stats.stat_date = :today', { today })
                 .getOne();
 
             if (!stats) {
@@ -135,13 +141,12 @@ export class DailyAdStatsService {
     }
 
     async checkAdServable(adId: string) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const today = getLocalDateString(new Date());
 
         const stats = await this.advertiserAdStatsRepository
             .createQueryBuilder('stats')
             .where('stats.ad_id = :adId', { adId })
-            .andWhere('stats.stat_date = :today', { today: today.toISOString().split('T')[0] })
+            .andWhere('stats.stat_date = :today', { today })
             .getOne();
 
         if (!stats) {
