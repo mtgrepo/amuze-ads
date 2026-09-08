@@ -6,11 +6,13 @@ import { AdService } from "./ad.service";
 import { AdController } from "./ad.controller";
 import { AdOwnershipGuard } from "./ad-ownership.guard";
 import { NotificationModule } from "../notifications/notification.module";
+import { CampaignModule } from "src/campaigns/campaign.module";
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Ad, AdSet]),
-    NotificationModule
+    NotificationModule,
+    CampaignModule
   ],
   providers: [AdService, AdOwnershipGuard],
   controllers: [AdController]

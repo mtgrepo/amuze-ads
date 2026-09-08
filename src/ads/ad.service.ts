@@ -6,6 +6,7 @@ import { AdSet } from "src/ad-sets/entities/ad-sets.entity";
 import { UpdateAdSetsDTO } from "src/ad-sets/dto/update-ad-sets.dto";
 import { CreateAdDto } from "./dto/create-ad.dto";
 import { NotificationService } from "../notifications/notification.service";
+import { CampaignService } from "src/campaigns/campaign.service";
 
 @Injectable()
 export class AdService {
@@ -14,7 +15,8 @@ export class AdService {
         private adRepository: Repository<Ad>,
         @InjectRepository(AdSet)
         private adSetRepository: Repository<AdSet>,
-        private readonly notificationService: NotificationService
+        private readonly notificationService: NotificationService,
+        private readonly campaignService: CampaignService
     ) {}
 
     async createAd(dto: CreateAdDto): Promise<Ad> {
@@ -95,6 +97,7 @@ export class AdService {
             ad.status = status;
             await this.adRepository.save(ad);
             const adData = await this.findAdById(id);
+            await this.campaignService.changeCampaignStatus(adData.adSet.campaignId, status);
             await this.notificationService.createNotification({
                 advertiserId: adData?.adSet?.campaign?.advertiserId,
                 title: "Notification about Ad Status",

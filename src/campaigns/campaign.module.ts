@@ -15,5 +15,6 @@ import { CampaignOwnershipGuard } from "./campaign-ownership.guard";
   ],
   providers: [CampaignService, CampaignOwnershipGuard],
   controllers: [CampaignController],
+  exports: [CampaignService],
 })
 export class CampaignModule {}
