@@ -3,6 +3,7 @@ import { IsIn, IsNotEmpty, IsNumberString, IsOptional, IsString } from "class-va
 const ASSET_TYPES = ['image', 'video'];
 const GENDERS = ['male', 'female', 'all'];
 const AD_TYPES = ['banner', 'interstitial', 'reward_video', 'native', 'splash'];
+const BUDGET_PLANS = ['daily', 'total'];
 
 export class CreateFullCampaignDto {
     @IsOptional()
@@ -12,6 +13,10 @@ export class CreateFullCampaignDto {
     @IsNotEmpty()
     @IsString()
     name: string
+
+    @IsNotEmpty()
+    @IsIn(BUDGET_PLANS)
+    budgetPlan: string
 
     @IsNotEmpty()
     @IsNumberString()

@@ -150,6 +150,7 @@ export class CampaignController {
             advertiserId,
             role: user.role,
             name: dto.name,
+            budgetPlan: dto.budgetPlan,
             dailyBudget,
             totalBudget,
             startDate,
