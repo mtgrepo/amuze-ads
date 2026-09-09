@@ -8,10 +8,6 @@ export class CreateCampaignDTO {
     @IsString()
     name: string
 
-    @IsNotEmpty()
-    @IsIn(['reach', 'traffic', 'engagement'])
-    objective: string
-
     @IsOptional()
     @IsIn(MODEL_TYPES)
     modelType: string

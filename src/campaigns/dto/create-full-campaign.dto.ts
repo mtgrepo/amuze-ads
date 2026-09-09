@@ -1,6 +1,5 @@
 import { IsIn, IsNotEmpty, IsNumberString, IsOptional, IsString } from "class-validator";
 
-const OBJECTIVES = ['reach', 'traffic', 'engagement'];
 const ASSET_TYPES = ['image', 'video'];
 const GENDERS = ['male', 'female', 'all'];
 const AD_TYPES = ['banner', 'interstitial', 'reward_video', 'native', 'splash'];
@@ -15,10 +14,6 @@ export class CreateFullCampaignDto {
     name: string
 
     @IsNotEmpty()
-    @IsIn(OBJECTIVES)
-    objective: string
-
-    @IsNotEmpty()
     @IsNumberString()
     dailyBudget: string
 
@@ -29,6 +24,10 @@ export class CreateFullCampaignDto {
     @IsNotEmpty()
     @IsString()
     startDate: string
+
+    @IsNotEmpty()
+    @IsString()
+    endDate: string
 
     @IsNotEmpty()
     @IsString()

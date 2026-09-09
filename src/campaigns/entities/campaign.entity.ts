@@ -11,9 +11,6 @@ export class Campaign {
     @Column({ type: 'varchar', length: 255 })
     name: string;
 
-    @Column({ type: 'varchar', length: 255 })
-    objective: string;
-
     @Column({ type: 'integer', name: 'daily_budget' })
     dailyBudget: number;
 

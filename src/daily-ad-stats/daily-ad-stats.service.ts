@@ -58,8 +58,11 @@ export class DailyAdStatsService {
             const dailyStats = activeAds.map(ad => {
                 const campaign = ad.adSet.campaign;
                 const dailyBudget = campaign.dailyBudget || 0;
-                const objective = campaign.objective;
-                const pricing = pricingMap.get(objective);
+                // TODO: pricing flow needs redesign — Campaign.objective was removed, so pricing mode
+                // can no longer be looked up this way. Disabled for now until the new flow is decided.
+                // const objective = campaign.objective;
+                // const pricing = pricingMap.get(objective);
+                const pricing = undefined as Record<string, any> | undefined;
 
                 let pricingMode: string | null = null;
                 let maxImpressions = 0;

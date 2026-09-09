@@ -142,15 +142,14 @@ export class CampaignController {
         }
 
         const startDate = new Date(dto.startDate);
+        const endDate = new Date(dto.endDate);
         const dailyBudget = Number(dto.dailyBudget);
         const totalBudget = Number(dto.totalBudget);
-        const endDate = this.calculateEndDate(startDate, totalBudget, dailyBudget);
 
         const result = await this.campaignService.createFullCampaign({
             advertiserId,
             role: user.role,
             name: dto.name,
-            objective: dto.objective,
             dailyBudget,
             totalBudget,
             startDate,

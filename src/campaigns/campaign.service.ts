@@ -15,7 +15,6 @@ export interface CreateFullCampaignInput {
     advertiserId: string;
     role: string;
     name: string;
-    objective: string;
     dailyBudget: number;
     totalBudget: number;
     startDate: Date;
@@ -204,7 +203,6 @@ export class CampaignService {
                 const campaign = manager.create(Campaign, {
                     advertiserId: input.advertiserId,
                     name: input.name,
-                    objective: input.objective,
                     dailyBudget: input.dailyBudget,
                     totalBudget: input.totalBudget,
                     spentAmount: 0,
