@@ -27,8 +27,6 @@ export interface CreateFullCampaignInput {
     ageMin: number;
     ageMax: number;
     gender: string;
-    location: string;
-    category: string;
     adType: string;
     placementKey: string;
 }
@@ -220,8 +218,6 @@ export class CampaignService {
                     ageMin: input.ageMin,
                     ageMax: input.ageMax,
                     gender: input.gender,
-                    location: input.location,
-                    category: input.category,
                 });
                 const savedAdSet = await manager.save(adSet);
 

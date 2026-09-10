@@ -12,13 +12,11 @@ export class AdServingController {
         @Query('placement') placement: string,
         @Query('age') age?: string,
         @Query('gender') gender?: string,
-        @Query('location') location?: string,
     ) {
         const result = await this.adServingService.findServableAd({
             placement,
             age: age ? parseInt(age, 10) : undefined,
             gender,
-            location,
         });
 
         if (!result) {

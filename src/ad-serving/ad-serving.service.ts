@@ -8,7 +8,6 @@ export interface ServingCriteria {
   placement: string;
   age?: number;
   gender?: string;
-  location?: string;
 }
 
 export interface ServableAdResult {
@@ -41,9 +40,6 @@ export class AdServingService {
     }
     if (criteria.gender) {
       qb = qb.andWhere("(adSet.gender = 'all' OR adSet.gender = :gender)", { gender: criteria.gender });
-    }
-    if (criteria.location) {
-      qb = qb.andWhere('adSet.location = :location', { location: criteria.location });
     }
 
     const candidates = await qb.getMany();

@@ -63,14 +63,6 @@ export class CreateFullCampaignDto {
     gender: string
 
     @IsNotEmpty()
-    @IsString()
-    location: string
-
-    @IsNotEmpty()
-    @IsString()
-    category: string
-
-    @IsNotEmpty()
     @IsIn(AD_TYPES)
     adType: string
 

@@ -16,12 +16,6 @@ export class AdSet {
     @Column({ type: 'varchar', length: 255 })
     gender: string;
 
-    @Column({ type: 'text' })
-    location: string;
-
-    @Column({ type: 'varchar', length: 255 })
-    category: string;
-
     @CreateDateColumn({ name: 'created_at' })
     createdAt: Date;
 

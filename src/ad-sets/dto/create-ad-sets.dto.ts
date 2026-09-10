@@ -17,12 +17,4 @@ export class CreateAdSetsDTO {
     @IsNotEmpty()
     @IsString()
     gender: string
-
-    @IsNotEmpty()
-    @IsString()
-    location: string
-
-    @IsNotEmpty()
-    @IsString()
-    category: string
 }

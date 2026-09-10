@@ -162,8 +162,6 @@ export class CampaignController {
             ageMin: Number(dto.ageMin),
             ageMax: Number(dto.ageMax),
             gender: dto.gender,
-            location: dto.location,
-            category: dto.category,
             adType: dto.adType,
             placementKey: dto.placementKey,
         }, file);
