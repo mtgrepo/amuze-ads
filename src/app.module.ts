@@ -11,7 +11,6 @@ import { AuthModule } from './auth/auth.module';
 import { MinioModule } from './minio/minio.module';
 import { TransactionModule } from './transactions/transaction.module';
 import { NotificationModule } from './notifications/notification.module';
-import { AdvertiserPostsModule } from './advertiser-posts/advertiser-posts.module';
 import { SystemConfigsModule } from './system-configs/system-configs.module';
 import { AdModule } from './ads/ad.module';
 import { DailyAdStatsModule } from './daily-ad-stats/daily-ad-stats.module';
@@ -49,7 +48,6 @@ import { ScheduleModule } from '@nestjs/schedule';
     AuthModule,
     TransactionModule,
     NotificationModule,
-    AdvertiserPostsModule,
     SystemConfigsModule,
     AdModule,
     DailyAdStatsModule,

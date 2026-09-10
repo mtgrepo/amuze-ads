@@ -36,8 +36,4 @@ export class CreateCampaignDTO {
     @IsString()
     advertiserId?: string
 
-    @IsOptional()
-    @IsString()
-    postId: string
-
 }

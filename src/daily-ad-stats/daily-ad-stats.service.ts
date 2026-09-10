@@ -42,10 +42,8 @@ export class DailyAdStatsService {
             .createQueryBuilder('ad')
             .innerJoinAndSelect('ad.adSet', 'adSet')
             .innerJoinAndSelect('adSet.campaign', 'campaign')
-            .leftJoinAndSelect('campaign.post', 'post')
             .where('ad.status = :adStatus', { adStatus: 'active' })
             .andWhere('campaign.status = :campaignStatus', { campaignStatus: 'active' })
-            .andWhere('(campaign.postId IS NULL OR post.status = :postStatus)', { postStatus: 'active' })
             .getMany();
 
             const pricingConfigs = await this.systemConfigsService.getByCategory('pricing');

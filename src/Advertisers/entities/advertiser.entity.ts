@@ -9,7 +9,6 @@ import {
 import { AdvertiserProfile } from '../../advertiser-profile/entities/advertiser-profile.entity';
 import { Transactions } from 'src/transactions/entities/transaction.entity';
 import { Notification } from 'src/notifications/entities/notification.entity';
-import { AdvertiserPost } from '../../advertiser-posts/entities/advertiser-post.entity';
 import { Campaign } from 'src/campaigns/entities/campaign.entity';
 
 @Entity('advertisers')
@@ -61,9 +60,6 @@ export class Advertiser {
     (profile) => profile.advertiser, // ✅ relation property
   )
   profiles: AdvertiserProfile[];
-
-  @OneToMany( () => AdvertiserPost, (post) => post.advertiser )
-  posts: AdvertiserPost[]
 
   @OneToMany(() => Campaign, (advertiserCampaign) => advertiserCampaign.advertiser)
   campaigns: Campaign[]

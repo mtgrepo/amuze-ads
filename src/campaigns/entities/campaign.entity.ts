@@ -1,5 +1,4 @@
 import { AdSet } from "src/ad-sets/entities/ad-sets.entity";
-import { AdvertiserPost } from "src/advertiser-posts/entities/advertiser-post.entity";
 import { Advertiser } from "src/advertisers/entities/advertiser.entity";
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
@@ -49,16 +48,6 @@ export class Campaign {
     })
     @JoinColumn({ name: 'advertiser_id' })
     advertiser: Advertiser;
-
-    @Column({ type: 'uuid', name: 'post_id', nullable: true })
-    postId: string | null
-
-    @ManyToOne(() => AdvertiserPost, (post) => post.campaigns, {
-        onDelete: 'CASCADE',
-        nullable: true,
-    })
-    @JoinColumn({ name: 'post_id' })
-    post: AdvertiserPost | null;
 
     @OneToMany(() => AdSet, (adSet) => adSet.campaign)
     adSets: AdSet[]
