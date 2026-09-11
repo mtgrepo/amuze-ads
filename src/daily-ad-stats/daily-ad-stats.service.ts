@@ -20,6 +20,13 @@ const EVENT_COLUMN: Record<string, 'impressions' | 'clicks' | 'watches' | 'engag
     engagement: 'engagements',
 };
 
+const AD_TOTAL_COLUMN: Record<string, { property: 'totalImpressions' | 'totalClicks' | 'totalWatches' | 'totalEngagements'; column: string }> = {
+    view: { property: 'totalImpressions', column: 'total_impressions' },
+    click: { property: 'totalClicks', column: 'total_clicks' },
+    watch: { property: 'totalWatches', column: 'total_watches' },
+    engagement: { property: 'totalEngagements', column: 'total_engagements' },
+};
+
 @Injectable()
 export class DailyAdStatsService {
     constructor(
@@ -60,6 +67,14 @@ export class DailyAdStatsService {
                 });
                 await this.advertiserAdStatsRepository.save(stats);
             }
+
+            const adTotal = AD_TOTAL_COLUMN[event];
+            await this.adRepository
+                .createQueryBuilder()
+                .update(Ad)
+                .set({ [adTotal.property]: () => `"${adTotal.column}" + 1` })
+                .where('id = :adId', { adId })
+                .execute();
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
@@ -107,20 +122,7 @@ export class DailyAdStatsService {
             if (dailyStats.length > 0) {
                 await this.advertiserAdStatsRepository.save(dailyStats);
             }
-
-            const campaignMap = new Map<string, Campaign>();
-            for (const ad of activeAds) {
-                const campaign = ad.adSet.campaign;
-                if (!campaignMap.has(campaign.id)) {
-                    campaignMap.set(campaign.id, campaign);
-                }
-            }
-
-            for (const campaign of campaignMap.values()) {
-                campaign.spentAmount = (campaign.spentAmount || 0) + campaign.dailyBudget;
-            }
-
-            await this.campaignRepository.save([...campaignMap.values()]);
+            
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }

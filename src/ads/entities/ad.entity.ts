@@ -39,6 +39,18 @@ export class Ad {
     @JoinColumn({ name: 'ad_creative_id' })
     adCreative: AdCreative;
 
+    @Column({ type: 'integer', default: 0, name: 'total_impressions' })
+    totalImpressions: number;
+
+    @Column({ type: 'integer', default: 0, name: 'total_clicks' })
+    totalClicks: number;
+
+    @Column({ type: 'integer', default: 0, name: 'total_engagements' })
+    totalEngagements: number;
+
+    @Column({ type: 'integer', default: 0, name: 'total_watches' })
+    totalWatches: number;
+
     @OneToMany(() => AdvertiserAdStats, (adStats) => adStats.ad)
     adStats: AdvertiserAdStats[];
 }
