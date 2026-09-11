@@ -117,20 +117,6 @@ export class CampaignService {
     }
 
     @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
-    async autoStopCampaigns() {
-        try {
-            const campaigns = await this.findCampaignList();
-            for (const campaign of campaigns) {
-                if (campaign.spentAmount >= campaign.totalBudget) {
-                    await this.changeCampaignStatus(campaign.id, "completed");
-                }
-            }
-        } catch (error) {
-            throw new NotAcceptableException(error.message);
-        }
-    }
-
-    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
     async expireCampaigns() {
         try {
             const today = new Date();
