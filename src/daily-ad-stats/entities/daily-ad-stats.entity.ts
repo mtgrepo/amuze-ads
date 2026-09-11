@@ -22,6 +22,9 @@ export class AdvertiserAdStats {
     @Column({ type: 'integer', default: 0 })
     engagements: number;
 
+    @Column({ type: 'integer', default: 0 })
+    watches: number;
+
     @CreateDateColumn({ name: 'created_at' })
     createdAt: Date;
 

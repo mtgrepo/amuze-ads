@@ -1,4 +1,4 @@
-import { Controller, Get, NotFoundException, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, NotFoundException, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiKeyGuard } from "./api-key.guard";
 import { AdServingService } from "./ad-serving.service";
 
@@ -26,6 +26,14 @@ export class AdServingController {
         return {
             data: result,
             message: 'Servable ad found',
+        };
+    }
+
+    @Post('track')
+    async track(@Body() body: { adId: string; event: string }) {
+        await this.adServingService.trackEvent(body.adId, body.event);
+        return {
+            message: 'Event tracked',
         };
     }
 }

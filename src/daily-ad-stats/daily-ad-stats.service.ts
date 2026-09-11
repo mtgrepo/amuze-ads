@@ -13,6 +13,13 @@ function getLocalDateString(date: Date): string {
     return `${year}-${month}-${day}`;
 }
 
+const EVENT_COLUMN: Record<string, 'impressions' | 'clicks' | 'watches' | 'engagements'> = {
+    view: 'impressions',
+    click: 'clicks',
+    watch: 'watches',
+    engagement: 'engagements',
+};
+
 @Injectable()
 export class DailyAdStatsService {
     constructor(
@@ -23,6 +30,40 @@ export class DailyAdStatsService {
         @InjectRepository(Campaign)
         private readonly campaignRepository: Repository<Campaign>,
     ) {}
+
+    async trackEvent(adId: string, event: string): Promise<void> {
+        try {
+            const column = EVENT_COLUMN[event];
+            if (!column) {
+                throw new NotAcceptableException(`Invalid event type: ${event}`);
+            }
+
+            const today = getLocalDateString(new Date());
+
+            const result = await this.advertiserAdStatsRepository
+                .createQueryBuilder()
+                .update(AdvertiserAdStats)
+                .set({ [column]: () => `"${column}" + 1` })
+                .where('ad_id = :adId', { adId })
+                .andWhere('stat_date = :today', { today })
+                .execute();
+
+            if (!result.affected) {
+                const stats = this.advertiserAdStatsRepository.create({
+                    adId,
+                    startDate: new Date(),
+                    impressions: 0,
+                    clicks: 0,
+                    engagements: 0,
+                    watches: 0,
+                    [column]: 1,
+                });
+                await this.advertiserAdStatsRepository.save(stats);
+            }
+        } catch (error) {
+            throw new NotAcceptableException(error.message);
+        }
+    }
 
     async create(adStatsData: Partial<AdvertiserAdStats>): Promise<AdvertiserAdStats> {
         try {

@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Ad } from "src/ads/entities/ad.entity";
+import { DailyAdStatsService } from "src/daily-ad-stats/daily-ad-stats.service";
 
 export interface ServingCriteria {
   placement: string;
@@ -21,6 +22,7 @@ export class AdServingService {
   constructor(
     @InjectRepository(Ad)
     private readonly adRepository: Repository<Ad>,
+    private readonly dailyAdStatsService: DailyAdStatsService,
   ) {}
 
   async findServableAd(criteria: ServingCriteria): Promise<ServableAdResult | null> {
@@ -55,5 +57,9 @@ export class AdServingService {
         destinationLink: candidate.adCreative.destinationLink,
       },
     };
+  }
+
+  async trackEvent(adId: string, event: string): Promise<void> {
+    await this.dailyAdStatsService.trackEvent(adId, event);
   }
 }
