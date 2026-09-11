@@ -2,7 +2,6 @@ import { Injectable } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Ad } from "src/ads/entities/ad.entity";
-import { DailyAdStatsService } from "src/daily-ad-stats/daily-ad-stats.service";
 
 export interface ServingCriteria {
   placement: string;
@@ -22,7 +21,6 @@ export class AdServingService {
   constructor(
     @InjectRepository(Ad)
     private readonly adRepository: Repository<Ad>,
-    private readonly dailyAdStatsService: DailyAdStatsService,
   ) {}
 
   async findServableAd(criteria: ServingCriteria): Promise<ServableAdResult | null> {
@@ -42,24 +40,20 @@ export class AdServingService {
       qb = qb.andWhere("(adSet.gender = 'all' OR adSet.gender = :gender)", { gender: criteria.gender });
     }
 
-    const candidates = await qb.getMany();
-
-    for (const candidate of candidates) {
-      const { servable } = await this.dailyAdStatsService.checkAdServable(candidate.id);
-      if (servable) {
-        return {
-          adId: candidate.id,
-          adType: candidate.adType,
-          placementKey: candidate.placementKey,
-          creative: {
-            assetType: candidate.adCreative.assetType,
-            asset: candidate.adCreative.asset,
-            destinationLink: candidate.adCreative.destinationLink,
-          },
-        };
-      }
+    const candidate = await qb.getOne();
+    if (!candidate) {
+      return null;
     }
 
-    return null;
+    return {
+      adId: candidate.id,
+      adType: candidate.adType,
+      placementKey: candidate.placementKey,
+      creative: {
+        assetType: candidate.adCreative.assetType,
+        asset: candidate.adCreative.asset,
+        destinationLink: candidate.adCreative.destinationLink,
+      },
+    };
   }
 }
