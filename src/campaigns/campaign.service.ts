@@ -36,6 +36,8 @@ export class CampaignService {
     constructor (
         @InjectRepository(Campaign)
         private campaignRepository: Repository<Campaign>,
+        @InjectRepository(Ad)
+        private adRepository: Repository<Ad>,
         private readonly notificationService: NotificationService,
         private readonly transactionService: TransactionService,
         private readonly minioService: MinioService,
@@ -64,7 +66,7 @@ export class CampaignService {
         try {
             const campaigns = await this.campaignRepository.find({
                 where: advertiserId ? { advertiserId } : {},
-                relations: ['advertiser', 'post'],
+                relations: ['advertiser'],
             });
             if (campaigns.length === 0) return [];
             const campaignIds = campaigns.map(c => c.id);
@@ -122,6 +124,40 @@ export class CampaignService {
                 if (campaign.spentAmount >= campaign.totalBudget) {
                     await this.changeCampaignStatus(campaign.id, "completed");
                 }
+            }
+        } catch (error) {
+            throw new NotAcceptableException(error.message);
+        }
+    }
+
+    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+    async expireCampaigns() {
+        try {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const expiredCampaigns = await this.campaignRepository
+                .createQueryBuilder('campaign')
+                .where('campaign.status = :status', { status: 'active' })
+                .andWhere('campaign.endDate < :today', { today })
+                .getMany();
+
+            for (const campaign of expiredCampaigns) {
+                campaign.status = 'expired';
+                await this.campaignRepository.save(campaign);
+
+                await this.adRepository
+                    .createQueryBuilder()
+                    .update(Ad)
+                    .set({ status: 'expired' })
+                    .where('ad_set_id IN (SELECT id FROM ad_sets WHERE campaign_id = :campaignId)', { campaignId: campaign.id })
+                    .execute();
+
+                await this.notificationService.createNotification({
+                    advertiserId: campaign.advertiserId,
+                    title: "Notification about Campaign Status",
+                    message: `Your Campaign has expired!`
+                });
             }
         } catch (error) {
             throw new NotAcceptableException(error.message);
