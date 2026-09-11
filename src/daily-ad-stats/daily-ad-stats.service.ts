@@ -85,7 +85,18 @@ export class DailyAdStatsService {
             .andWhere('campaign.status = :campaignStatus', { campaignStatus: 'active' })
             .getMany();
 
-            const dailyStats = activeAds.map(ad => this.advertiserAdStatsRepository.create({
+            const today = getLocalDateString(new Date());
+
+            const existingStats = await this.advertiserAdStatsRepository
+                .createQueryBuilder('stats')
+                .select('stats.adId', 'adId')
+                .where('stats.startDate = :today', { today })
+                .getRawMany();
+            const existingAdIds = new Set(existingStats.map(s => s.adId));
+
+            const adsNeedingStats = activeAds.filter(ad => !existingAdIds.has(ad.id));
+
+            const dailyStats = adsNeedingStats.map(ad => this.advertiserAdStatsRepository.create({
                 adId: ad.id,
                 startDate: new Date(),
                 impressions: 0,
@@ -93,7 +104,9 @@ export class DailyAdStatsService {
                 engagements: 0,
             }));
 
-            await this.advertiserAdStatsRepository.save(dailyStats);
+            if (dailyStats.length > 0) {
+                await this.advertiserAdStatsRepository.save(dailyStats);
+            }
 
             const campaignMap = new Map<string, Campaign>();
             for (const ad of activeAds) {
