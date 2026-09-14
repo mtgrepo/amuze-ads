@@ -169,15 +169,23 @@ export class DailyAdStatsService {
         }
     }
 
-    async getAdminOverview(advertiserId?: string) {
-        const today = getLocalDateString(new Date());
+    async getAdminOverview(fromDate?: string, toDate?: string, advertiserId?: string) {
+        const endDate = toDate ? new Date(toDate) : new Date();
+        const startDate = fromDate ? new Date(fromDate) : new Date();
+        if (!fromDate) {
+            startDate.setDate(startDate.getDate() - 6);
+        }
+
         let statsQb = this.advertiserAdStatsRepository
             .createQueryBuilder('stats')
             .select('COALESCE(SUM(stats.impressions), 0)', 'totalImpressions')
             .addSelect('COALESCE(SUM(stats.clicks), 0)', 'totalClicks')
             .addSelect('COALESCE(SUM(stats.engagements), 0)', 'totalEngagements')
             .addSelect('COALESCE(SUM(stats.watches), 0)', 'totalWatches')
-            .where('stats.startDate = :today', { today });
+            .where('stats.startDate BETWEEN :startDate AND :endDate', {
+                startDate: getLocalDateString(startDate),
+                endDate: getLocalDateString(endDate),
+            });
 
         if (advertiserId) {
             statsQb = statsQb
@@ -211,10 +219,12 @@ export class DailyAdStatsService {
         };
     }
 
-    async getAdminTrend(days: number = 7, advertiserId?: string) {
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - (days - 1));
+    async getAdminTrend(fromDate?: string, toDate?: string, advertiserId?: string) {
+        const endDate = toDate ? new Date(toDate) : new Date();
+        const startDate = fromDate ? new Date(fromDate) : new Date();
+        if (!fromDate) {
+            startDate.setDate(startDate.getDate() - 6);
+        }
 
         let qb = this.advertiserAdStatsRepository
             .createQueryBuilder('stats')
@@ -250,32 +260,40 @@ export class DailyAdStatsService {
         }));
     }
 
-    async getTopAds(limit: number = 5, metric: string = 'clicks', advertiserId?: string) {
-        const METRIC_PROPERTY: Record<string, 'totalImpressions' | 'totalClicks' | 'totalEngagements' | 'totalWatches'> = {
-            impressions: 'totalImpressions',
-            clicks: 'totalClicks',
-            engagements: 'totalEngagements',
-            watches: 'totalWatches',
-        };
-        const orderProperty = METRIC_PROPERTY[metric] ?? 'totalClicks';
+    async getTopAds(limit: number = 5, metric: string = 'clicks', fromDate?: string, toDate?: string, advertiserId?: string) {
+        const allowedMetrics = ['clicks', 'impressions', 'engagements', 'watches'];
+        const safeMetric = allowedMetrics.includes(metric) ? metric : 'clicks';
 
-        let qb = this.adRepository
-            .createQueryBuilder('ad')
-            .select('ad.id', 'adId')
+        const endDate = toDate ? new Date(toDate) : new Date();
+        const startDate = fromDate ? new Date(fromDate) : new Date();
+        if (!fromDate) {
+            startDate.setDate(startDate.getDate() - 6);
+        }
+
+        let qb = this.advertiserAdStatsRepository
+            .createQueryBuilder('stats')
+            .select('stats.adId', 'adId')
             .addSelect('campaign.name', 'campaignName')
-            .addSelect('ad.totalImpressions', 'totalImpressions')
-            .addSelect('ad.totalClicks', 'totalClicks')
-            .addSelect('ad.totalEngagements', 'totalEngagements')
-            .addSelect('ad.totalWatches', 'totalWatches')
+            .addSelect('SUM(stats.impressions)', 'totalImpressions')
+            .addSelect('SUM(stats.clicks)', 'totalClicks')
+            .addSelect('SUM(stats.engagements)', 'totalEngagements')
+            .addSelect('SUM(stats.watches)', 'totalWatches')
+            .innerJoin('stats.ad', 'ad')
             .innerJoin('ad.adSet', 'adSet')
-            .innerJoin('adSet.campaign', 'campaign');
+            .innerJoin('adSet.campaign', 'campaign')
+            .where('stats.startDate BETWEEN :startDate AND :endDate', {
+                startDate: getLocalDateString(startDate),
+                endDate: getLocalDateString(endDate),
+            });
 
         if (advertiserId) {
-            qb = qb.where('campaign.advertiserId = :advertiserId', { advertiserId });
+            qb = qb.andWhere('campaign.advertiserId = :advertiserId', { advertiserId });
         }
 
         const results = await qb
-            .orderBy(`ad.${orderProperty}`, 'DESC')
+            .groupBy('stats.adId')
+            .addGroupBy('campaign.name')
+            .orderBy(`SUM(stats.${safeMetric})`, 'DESC')
             .limit(limit)
             .getRawMany();
 

@@ -63,8 +63,12 @@ export class DailyAdStatsController {
     }
 
     @Get('admin/overview')
-    async getAdminOverview(@Query('advertiserId') advertiserId?: string) {
-        const result = await this.dailyAdStatsService.getAdminOverview(advertiserId);
+    async getAdminOverview(
+        @Query('fromDate') fromDate?: string,
+        @Query('toDate') toDate?: string,
+        @Query('advertiserId') advertiserId?: string,
+    ) {
+        const result = await this.dailyAdStatsService.getAdminOverview(fromDate, toDate, advertiserId);
         return {
             data: result,
             message: 'Admin overview retrieved successfully',
@@ -73,10 +77,11 @@ export class DailyAdStatsController {
 
     @Get('admin/trend')
     async getAdminTrend(
-        @Query('days') days: string = '7',
+        @Query('fromDate') fromDate?: string,
+        @Query('toDate') toDate?: string,
         @Query('advertiserId') advertiserId?: string,
     ) {
-        const result = await this.dailyAdStatsService.getAdminTrend(parseInt(days) || 7, advertiserId);
+        const result = await this.dailyAdStatsService.getAdminTrend(fromDate, toDate, advertiserId);
         return {
             data: result,
             message: 'Admin trend retrieved successfully',
@@ -87,9 +92,11 @@ export class DailyAdStatsController {
     async getTopAds(
         @Query('limit') limit: string = '5',
         @Query('metric') metric: string = 'clicks',
+        @Query('fromDate') fromDate?: string,
+        @Query('toDate') toDate?: string,
         @Query('advertiserId') advertiserId?: string,
     ) {
-        const result = await this.dailyAdStatsService.getTopAds(parseInt(limit) || 5, metric, advertiserId);
+        const result = await this.dailyAdStatsService.getTopAds(parseInt(limit) || 5, metric, fromDate, toDate, advertiserId);
         return {
             data: result,
             message: 'Top ads retrieved successfully',
