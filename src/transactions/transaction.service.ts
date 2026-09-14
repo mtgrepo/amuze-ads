@@ -13,9 +13,10 @@ export class TransactionService {
         private campaignRepository: Repository<Campaign>,
     ) {}
 
-    async findAllTransactions() {
+    async findAllTransactions(advertiserId?: string) {
         try {
             const transactions = await this.transactionRepository.find({
+                where: advertiserId ? { advertiserId } : {},
                 relations: ['advertiser'],
                 select: {
                     id: true,

@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "src/auth/jwt-auth.guard";
-import { RolesGuard } from "src/auth/roles.guard";
-import { Roles } from "src/auth/roles.decorator";
+import { CurrentUser } from "src/auth/current-user.decorator";
+import type { CurrentUserPayload } from "src/auth/current-user.decorator";
 import { TransactionService } from "./transaction.service";
 import { CreateTransactionDTO } from "./dto/create-transaction.dto";
 
@@ -19,11 +19,11 @@ export class TransactionController {
         };
     }
 
-    @UseGuards(RolesGuard)
-    @Roles('admin')
     @Get()
-    async findAll() {
-        const transactions = await this.transactionService.findAllTransactions();
+    async findAll(@CurrentUser() user: CurrentUserPayload) {
+        const transactions = await this.transactionService.findAllTransactions(
+            user.role === 'admin' ? undefined : user.id
+        );
         return {
             data: transactions,
             message: 'Transactions retrieved successfully',
