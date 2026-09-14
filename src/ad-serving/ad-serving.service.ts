@@ -42,7 +42,7 @@ export class AdServingService {
       qb = qb.andWhere("(adSet.gender = 'all' OR adSet.gender = :gender)", { gender: criteria.gender });
     }
 
-    const candidate = await qb.getOne();
+    const candidate = await qb.orderBy('RANDOM()').getOne();
     if (!candidate) {
       return null;
     }
