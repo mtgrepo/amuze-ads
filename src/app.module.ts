@@ -38,7 +38,8 @@ import { ScheduleModule } from '@nestjs/schedule';
         migrations: [__dirname + '/migrations/*{.ts,.js}'],
         autoLoadEntities: true,
         synchronize: false,
-        logging: true,
+        logging: process.env.NODE_ENV !== 'production',
+        ssl: config.get('DB_SSL') === 'true' ? { rejectUnauthorized: false } : false,
       })
     }),
     MinioModule,
