@@ -27,7 +27,9 @@ export class AdvertiserService {
 
     async findAdvertiserList(): Promise<Advertiser[]> {
         try {
-            return await this.advertiserRepository.find();
+            return await this.advertiserRepository.find({ 
+                select: ['id', 'name', 'email', 'phone', 'status', 'verified', 'lastLogin', 'createdAt', 'updatedAt'],
+            });
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
@@ -35,7 +37,10 @@ export class AdvertiserService {
 
     async findAdvertiserByEmail(email: string): Promise<Advertiser | null> {
         try {
-            return await this.advertiserRepository.findOneBy({ email });
+            return await this.advertiserRepository.findOne({
+                where: { email },
+                select: ['id', 'name', 'email', 'password', 'verified', 'status'],
+            });
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
@@ -43,7 +48,11 @@ export class AdvertiserService {
 
     async findAdvertiserById(id: string): Promise<Advertiser> {
         try {
-            const advertiser = await this.advertiserRepository.findOne({ where: { id }, relations: ['profiles'] });
+            const advertiser = await this.advertiserRepository.findOne({ 
+                where: { id }, 
+                relations: ['profiles'],
+                select: ['id', 'name', 'email', 'phone', 'status', 'verified', 'lastLogin', 'createdAt', 'updatedAt'],
+            });
             if (!advertiser) {
                 throw new NotAcceptableException("Advertiser not found");
             }

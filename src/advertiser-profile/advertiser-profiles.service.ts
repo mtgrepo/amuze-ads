@@ -26,7 +26,12 @@ export class AdvertiserProfilesService {
 
   async findAdvertiserProfiles(): Promise<AdvertiserProfile[]> {
     try {
-      const data = await this.advertiserProfileRepository.find({ relations: ['advertiser'] });
+
+      const data = await this.advertiserProfileRepository
+      .createQueryBuilder('profile')
+      .leftJoin('profile.advertiser', 'advertiser')
+      .addSelect(['advertiser.id', 'advertiser.name', 'advertiser.email'])
+      .getMany();
       return data;
     } catch (error) {
       throw new Error(error.message);

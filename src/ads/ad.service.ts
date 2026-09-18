@@ -38,10 +38,17 @@ export class AdService {
 
     async findAdList(advertiserId?: string): Promise<Ad[]> {
         try {
-            return await this.adRepository.find({
-                where: advertiserId ? { adSet: { campaign: { advertiserId } } } : {},
-                relations: ['adSet', 'adSet.campaign', 'adSet.campaign.advertiser', 'adCreative'],
-            });
+
+            const data = await this.adRepository
+            .createQueryBuilder('ads')
+            .leftJoin('ads.adSet', 'adSet')
+            .leftJoin('adSet.campaign', 'campaign')
+            .leftJoin('campaign.advertiser', 'advertiser')
+            .where(advertiserId ? 'advertiser.id = :advertiserId' : '1=1', { advertiserId })
+            .addSelect(['adSet.ageMin', 'adSet.ageMax', 'adSet.gender', 'campaign.name', 'campaign.budgetPlan'])
+            .getMany();
+
+            return data;
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
