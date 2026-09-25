@@ -46,7 +46,8 @@ export class AuthService {
         throw new NotFoundException('Invalid credentials');
       }
 
-      if (!user.password) {
+      // Agency clients are managed by their agency and never log in.
+      if (!user.password || user.agencyId) {
         throw new NotFoundException('Invalid credentials');
       }
 
@@ -59,14 +60,16 @@ export class AuthService {
         throw new NotFoundException('Invalid credentials');
       }
 
-      const payload = { sub: user.id, email: user.email, role: 'advertiser' };
+      const role = user.type === 'agency' ? 'agency' : 'advertiser';
+      const payload = { sub: user.id, email: user.email, role };
       const accessToken = this.jwtService.sign(payload);
 
       return {
         accessToken,
         user: {
           id: user.id,
-          role: "Advertiser",
+          role: role === 'agency' ? 'Agency' : 'Advertiser',
+          type: user.type,
           name: user.name,
           email: user.email,
         },
