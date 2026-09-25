@@ -9,6 +9,7 @@ import { CurrentUser } from 'src/auth/current-user.decorator';
 import type { CurrentUserPayload } from 'src/auth/current-user.decorator';
 import { CreateAccountDTO } from './dto/create-account.dto';
 import { CreateClientDTO } from './dto/create-client.dto';
+import { AdvertiserAccessGuard } from './advertiser-access.guard';
 
 // @UseGuards(JwtAuthGuard)
 @Controller('advertisers')
@@ -66,6 +67,7 @@ export class AdvertiserController {
         };
     }
 
+    @UseGuards(JwtAuthGuard, AdvertiserAccessGuard)
     @Get(':id')
     async findOne(@Param('id') id: string) {
         const advertiser = await this.advertiserService.findAdvertiserById(id);
@@ -75,9 +77,11 @@ export class AdvertiserController {
         };
     }
 
+    @UseGuards(JwtAuthGuard, AdvertiserAccessGuard)
     @Patch(':id/update')
-    async update(@Param('id') id: string, @Body() updateData: UpdateAdvertiserDTO) {
-        const advertiser = await this.advertiserService.updateAdvertiser(id, updateData);
+    async update(@Param('id') id: string, @Body() updateData: UpdateAdvertiserDTO, @CurrentUser() user: CurrentUserPayload) {
+        const { status: _status, verified: _verified, ...selfEditable } = updateData;
+        const advertiser = await this.advertiserService.updateAdvertiser(id, user.role === 'admin' ? updateData : selfEditable);
         return {
             data: advertiser,
             message: 'Advertiser updated successfully',

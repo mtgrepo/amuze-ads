@@ -81,7 +81,11 @@ export class AdvertiserService {
         try {
             return await this.advertiserRepository.find({
                 where: { agencyId },
-                select: ['id', 'name', 'email', 'phone', 'status', 'verified', 'createdAt', 'updatedAt'],
+                relations: { profiles: true },
+                select: {
+                    id: true, name: true, email: true, phone: true, status: true, verified: true, createdAt: true, updatedAt: true,
+                    profiles: { id: true },
+                },
                 order: { createdAt: 'DESC' },
             });
         } catch (error) {
@@ -144,6 +148,18 @@ export class AdvertiserService {
             throw new BadRequestException('Advertiser not found');
         }
         return advertiser.agencyId ?? advertiser.id;
+    }
+
+    /** Whether the user may view/edit this account's own details and business profile. */
+    async canManageAccount(user: CurrentUserPayload, accountId: string): Promise<boolean> {
+        if (user.role === 'admin' || user.id === accountId) {
+            return true;
+        }
+        if (user.role === 'agency') {
+            const account = await this.advertiserRepository.findOne({ where: { id: accountId }, select: ['id', 'agencyId'] });
+            return account?.agencyId === user.id;
+        }
+        return false;
     }
 
     async findAccountSummary(id: string): Promise<{ id: string; name: string; agencyId: string | null } | null> {
