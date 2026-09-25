@@ -46,6 +46,10 @@ export class AuthService {
         throw new NotFoundException('Invalid credentials');
       }
 
+      if (!user.password) {
+        throw new NotFoundException('Invalid credentials');
+      }
+
       if(!user?.verified || user.status === 'inactive'){
         throw new NotFoundException('User Not Found!');
       }

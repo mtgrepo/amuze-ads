@@ -5,7 +5,10 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
+import type { AdvertiserType } from '../advertiser-type';
 import { AdvertiserProfile } from '../../advertiser-profile/entities/advertiser-profile.entity';
 import { Transactions } from 'src/transactions/entities/transaction.entity';
 import { Notification } from 'src/notifications/entities/notification.entity';
@@ -19,8 +22,8 @@ export class Advertiser {
   @Column({ type: 'varchar', length: 255 })
   name: string;
 
-  @Column({ type: 'varchar', length: 255, unique: true })
-  email: string;
+  @Column({ type: 'varchar', length: 255, unique: true, nullable: true })
+  email: string | null;
 
   @Column({ type: 'varchar', length: 20, nullable: true })
   phone: string;
@@ -31,8 +34,21 @@ export class Advertiser {
   @Column({ type: 'boolean', default: true })
   verified: boolean
 
-  @Column({ type: 'text', name: 'password' })
-  password: string;
+  @Column({ type: 'text', name: 'password', nullable: true })
+  password: string | null;
+
+  @Column({ type: 'varchar', length: 20, default: 'advertiser' })
+  type: AdvertiserType;
+
+  @Column({ type: 'uuid', name: 'agency_id', nullable: true })
+  agencyId: string | null;
+
+  @ManyToOne(() => Advertiser, (agency) => agency.clients, { nullable: true, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'agency_id' })
+  agency: Advertiser | null;
+
+  @OneToMany(() => Advertiser, (client) => client.agency)
+  clients: Advertiser[];
 
   @Column({ type: 'timestamp', name: 'last_login', nullable: true })
   lastLogin: Date;
