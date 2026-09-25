@@ -3,6 +3,12 @@ import { AdvertiserService } from './advertiser.service';
 import { CreateAdvertiserDTO } from './dto/create-advertiser.dto';
 import { UpdateAdvertiserDTO } from './dto/update-advertiser.dto';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import { RolesGuard } from 'src/auth/roles.guard';
+import { Roles } from 'src/auth/roles.decorator';
+import { CurrentUser } from 'src/auth/current-user.decorator';
+import type { CurrentUserPayload } from 'src/auth/current-user.decorator';
+import { CreateAccountDTO } from './dto/create-account.dto';
+import { CreateClientDTO } from './dto/create-client.dto';
 
 // @UseGuards(JwtAuthGuard)
 @Controller('advertisers')
@@ -15,6 +21,39 @@ export class AdvertiserController {
         return {
             data: advertiser,
             message: 'Advertiser created successfully',
+        };
+    }
+
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('admin')
+    @Post('accounts')
+    async createAccount(@Body() dto: CreateAccountDTO) {
+        const account = await this.advertiserService.createAccount(dto);
+        return {
+            data: account,
+            message: 'Account created successfully',
+        };
+    }
+
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('agency')
+    @Get('my-clients')
+    async findMyClients(@CurrentUser() user: CurrentUserPayload) {
+        const clients = await this.advertiserService.findClientsOfAgency(user.id);
+        return {
+            data: clients,
+            message: 'Clients retrieved successfully',
+        };
+    }
+
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('agency')
+    @Post('my-clients')
+    async createMyClient(@Body() dto: CreateClientDTO, @CurrentUser() user: CurrentUserPayload) {
+        const client = await this.advertiserService.createClientForAgency(user.id, dto);
+        return {
+            data: client,
+            message: 'Client created successfully',
         };
     }
 
