@@ -169,7 +169,10 @@ export class DailyAdStatsService {
         }
     }
 
-    async getAdminOverview(fromDate?: string, toDate?: string, advertiserId?: string) {
+    async getAdminOverview(fromDate?: string, toDate?: string, advertiserIds?: string[]) {
+        if (advertiserIds && advertiserIds.length === 0) {
+            return { totalImpressions: 0, totalClicks: 0, totalEngagements: 0, totalWatches: 0, activeAds: 0 };
+        }
         const endDate = toDate ? new Date(toDate) : new Date();
         const startDate = fromDate ? new Date(fromDate) : new Date();
         if (!fromDate) {
@@ -187,12 +190,12 @@ export class DailyAdStatsService {
                 endDate: getLocalDateString(endDate),
             });
 
-        if (advertiserId) {
+        if (advertiserIds) {
             statsQb = statsQb
                 .innerJoin('stats.ad', 'ad')
                 .innerJoin('ad.adSet', 'adSet')
                 .innerJoin('adSet.campaign', 'campaign')
-                .andWhere('campaign.advertiserId = :advertiserId', { advertiserId });
+                .andWhere('campaign.advertiserId IN (:...advertiserIds)', { advertiserIds });
         }
 
         const statsResult = await statsQb.getRawOne();
@@ -204,8 +207,8 @@ export class DailyAdStatsService {
             .where('ad.status = :adStatus', { adStatus: 'active' })
             .andWhere('campaign.status = :campaignStatus', { campaignStatus: 'active' });
 
-        if (advertiserId) {
-            activeAdsQb = activeAdsQb.andWhere('campaign.advertiserId = :advertiserId', { advertiserId });
+        if (advertiserIds) {
+            activeAdsQb = activeAdsQb.andWhere('campaign.advertiserId IN (:...advertiserIds)', { advertiserIds });
         }
 
         const activeAds = await activeAdsQb.getCount();
@@ -219,7 +222,8 @@ export class DailyAdStatsService {
         };
     }
 
-    async getAdminTrend(fromDate?: string, toDate?: string, advertiserId?: string) {
+    async getAdminTrend(fromDate?: string, toDate?: string, advertiserIds?: string[]) {
+        if (advertiserIds && advertiserIds.length === 0) return [];
         const endDate = toDate ? new Date(toDate) : new Date();
         const startDate = fromDate ? new Date(fromDate) : new Date();
         if (!fromDate) {
@@ -238,12 +242,12 @@ export class DailyAdStatsService {
                 endDate: getLocalDateString(endDate),
             });
 
-        if (advertiserId) {
+        if (advertiserIds) {
             qb = qb
                 .innerJoin('stats.ad', 'ad')
                 .innerJoin('ad.adSet', 'adSet')
                 .innerJoin('adSet.campaign', 'campaign')
-                .andWhere('campaign.advertiserId = :advertiserId', { advertiserId });
+                .andWhere('campaign.advertiserId IN (:...advertiserIds)', { advertiserIds });
         }
 
         const results = await qb
@@ -260,7 +264,8 @@ export class DailyAdStatsService {
         }));
     }
 
-    async getTopAds(limit: number = 5, metric: string = 'clicks', fromDate?: string, toDate?: string, advertiserId?: string) {
+    async getTopAds(limit: number = 5, metric: string = 'clicks', fromDate?: string, toDate?: string, advertiserIds?: string[]) {
+        if (advertiserIds && advertiserIds.length === 0) return [];
         const allowedMetrics = ['clicks', 'impressions', 'engagements', 'watches'];
         const safeMetric = allowedMetrics.includes(metric) ? metric : 'clicks';
 
@@ -286,8 +291,8 @@ export class DailyAdStatsService {
                 endDate: getLocalDateString(endDate),
             });
 
-        if (advertiserId) {
-            qb = qb.andWhere('campaign.advertiserId = :advertiserId', { advertiserId });
+        if (advertiserIds) {
+            qb = qb.andWhere('campaign.advertiserId IN (:...advertiserIds)', { advertiserIds });
         }
 
         const results = await qb

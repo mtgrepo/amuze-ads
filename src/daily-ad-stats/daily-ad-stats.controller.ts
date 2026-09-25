@@ -5,11 +5,17 @@ import { CreateDailyAdStatsDTO } from "./dto/create-daily-ad-stats.dto";
 import { AdvertiserAdStats } from "./entities/daily-ad-stats.entity";
 import { RolesGuard } from "src/auth/roles.guard";
 import { Roles } from "src/auth/roles.decorator";
+import { CurrentUser } from "src/auth/current-user.decorator";
+import type { CurrentUserPayload } from "src/auth/current-user.decorator";
+import { AdvertiserService } from "src/advertisers/advertiser.service";
 
 @UseGuards(JwtAuthGuard)
 @Controller('daily-ad-stats')
 export class DailyAdStatsController {
-    constructor(private readonly dailyAdStatsService: DailyAdStatsService) {}
+    constructor(
+        private readonly dailyAdStatsService: DailyAdStatsService,
+        private readonly advertiserService: AdvertiserService,
+    ) {}
 
     @UseGuards(RolesGuard)
     @Roles('admin')
@@ -64,11 +70,13 @@ export class DailyAdStatsController {
 
     @Get('admin/overview')
     async getAdminOverview(
+        @CurrentUser() user: CurrentUserPayload,
         @Query('fromDate') fromDate?: string,
         @Query('toDate') toDate?: string,
         @Query('advertiserId') advertiserId?: string,
     ) {
-        const result = await this.dailyAdStatsService.getAdminOverview(fromDate, toDate, advertiserId);
+        const scope = await this.advertiserService.resolveListScope(user, advertiserId);
+        const result = await this.dailyAdStatsService.getAdminOverview(fromDate, toDate, scope);
         return {
             data: result,
             message: 'Admin overview retrieved successfully',
@@ -77,11 +85,13 @@ export class DailyAdStatsController {
 
     @Get('admin/trend')
     async getAdminTrend(
+        @CurrentUser() user: CurrentUserPayload,
         @Query('fromDate') fromDate?: string,
         @Query('toDate') toDate?: string,
         @Query('advertiserId') advertiserId?: string,
     ) {
-        const result = await this.dailyAdStatsService.getAdminTrend(fromDate, toDate, advertiserId);
+        const scope = await this.advertiserService.resolveListScope(user, advertiserId);
+        const result = await this.dailyAdStatsService.getAdminTrend(fromDate, toDate, scope);
         return {
             data: result,
             message: 'Admin trend retrieved successfully',
@@ -90,13 +100,15 @@ export class DailyAdStatsController {
 
     @Get('admin/top-ads')
     async getTopAds(
+        @CurrentUser() user: CurrentUserPayload,
         @Query('limit') limit: string = '5',
         @Query('metric') metric: string = 'clicks',
         @Query('fromDate') fromDate?: string,
         @Query('toDate') toDate?: string,
         @Query('advertiserId') advertiserId?: string,
     ) {
-        const result = await this.dailyAdStatsService.getTopAds(parseInt(limit) || 5, metric, fromDate, toDate, advertiserId);
+        const scope = await this.advertiserService.resolveListScope(user, advertiserId);
+        const result = await this.dailyAdStatsService.getTopAds(parseInt(limit) || 5, metric, fromDate, toDate, scope);
         return {
             data: result,
             message: 'Top ads retrieved successfully',
