@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { AdService } from "./ad.service";
 import { AdOwnershipGuard } from "./ad-ownership.guard";
 import { AD_SELF_SERVICE_TRANSITIONS } from "./ad-status";
@@ -9,11 +9,15 @@ import { CurrentUser } from "src/auth/current-user.decorator";
 import type { CurrentUserPayload } from "src/auth/current-user.decorator";
 import { CreateAdDto } from "./dto/create-ad.dto";
 import { UpdateAdSetsDTO } from "src/ad-sets/dto/update-ad-sets.dto";
+import { AdvertiserService } from "src/advertisers/advertiser.service";
 
 @UseGuards(JwtAuthGuard)
 @Controller('ads')
 export class AdController {
-    constructor(private readonly adService: AdService) {}
+    constructor(
+        private readonly adService: AdService,
+        private readonly advertiserService: AdvertiserService,
+    ) {}
 
     @Post()
     async create(@Body() dto: CreateAdDto) {
@@ -25,8 +29,8 @@ export class AdController {
     }
 
     @Get()
-    async findAll(@CurrentUser() user: CurrentUserPayload) {
-        const ads = await this.adService.findAdList(user.role === 'admin' ? undefined : user.id);
+    async findAll(@CurrentUser() user: CurrentUserPayload, @Query('advertiserId') advertiserId?: string) {
+        const ads = await this.adService.findAdList(await this.advertiserService.resolveListScope(user, advertiserId));
         return {
             data: ads,
             message: "Ads retrieved successfully"

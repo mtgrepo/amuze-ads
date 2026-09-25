@@ -30,10 +30,11 @@ export class AdCreativeService {
         }
     }
 
-    async findAll(advertiserId?: string): Promise<AdCreative[]> {
+    async findAll(advertiserIds?: string[]): Promise<AdCreative[]> {
         try {
+            if (advertiserIds && advertiserIds.length === 0) return [];
             return await this.adCreativeRepository.find({
-                where: advertiserId ? { advertiserId } : {},
+                where: advertiserIds ? { advertiserId: In(advertiserIds) } : {},
             });
         } catch (error) {
             throw new NotAcceptableException(error.message);

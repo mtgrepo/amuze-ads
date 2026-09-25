@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -20,6 +21,7 @@ import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { CurrentUser } from 'src/auth/current-user.decorator';
 import type { CurrentUserPayload } from 'src/auth/current-user.decorator';
 import { MinioService } from 'src/minio/minio.service';
+import { AdvertiserService } from 'src/advertisers/advertiser.service';
 
 @UseGuards(JwtAuthGuard)
 @Controller('ad-creatives')
@@ -27,6 +29,7 @@ export class AdCreativeController {
   constructor(
     private readonly adCreativeService: AdCreativeService,
     private readonly minioService: MinioService,
+    private readonly advertiserService: AdvertiserService,
   ) {}
 
   @Post()
@@ -36,7 +39,7 @@ export class AdCreativeController {
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() user: CurrentUserPayload,
   ) {
-    const advertiserId = user.role === 'admin' ? dto.advertiserId : user.id;
+    const advertiserId = await this.advertiserService.resolveTargetAdvertiserId(user, dto.advertiserId);
     const folder = `ad-creatives/${advertiserId}`;
     const assetPath = await this.minioService.upload(file, folder);
 
@@ -49,8 +52,8 @@ export class AdCreativeController {
   }
 
   @Get()
-  async findAll(@CurrentUser() user: CurrentUserPayload) {
-    const creatives = await this.adCreativeService.findAll(user.role === 'admin' ? undefined : user.id);
+  async findAll(@CurrentUser() user: CurrentUserPayload, @Query('advertiserId') advertiserId?: string) {
+    const creatives = await this.adCreativeService.findAll(await this.advertiserService.resolveListScope(user, advertiserId));
     return {
       data: creatives,
       message: 'Ad creatives retrieved successfully',

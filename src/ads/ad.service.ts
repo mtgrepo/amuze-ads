@@ -36,16 +36,17 @@ export class AdService {
         }
     }
 
-    async findAdList(advertiserId?: string): Promise<Ad[]> {
+    async findAdList(advertiserIds?: string[]): Promise<Ad[]> {
         try {
+            if (advertiserIds && advertiserIds.length === 0) return [];
 
             const data = await this.adRepository
             .createQueryBuilder('ads')
             .leftJoin('ads.adSet', 'adSet')
             .leftJoin('adSet.campaign', 'campaign')
             .leftJoin('campaign.advertiser', 'advertiser')
-            .where(advertiserId ? 'advertiser.id = :advertiserId' : '1=1', { advertiserId })
-            .addSelect(['adSet.ageMin', 'adSet.ageMax', 'adSet.gender', 'campaign.name', 'campaign.budgetPlan'])
+            .where(advertiserIds ? 'advertiser.id IN (:...advertiserIds)' : '1=1', { advertiserIds })
+            .addSelect(['adSet.ageMin', 'adSet.ageMax', 'adSet.gender', 'campaign.name', 'campaign.budgetPlan', 'advertiser.id', 'advertiser.name'])
             .getMany();
 
             return data;

@@ -1,7 +1,7 @@
 import { Injectable, NotAcceptableException } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { Campaign } from "./entities/campaign.entity";
-import { DataSource, Repository } from "typeorm";
+import { DataSource, In, Repository } from "typeorm";
 import { NotificationService } from "../notifications/notification.service";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { TransactionService } from "src/transactions/transaction.service";
@@ -10,6 +10,7 @@ import { MinioService } from "src/minio/minio.service";
 import { AdCreative } from "src/ad-creatives/entities/ad-creative.entity";
 import { AdSet } from "src/ad-sets/entities/ad-sets.entity";
 import { Ad } from "src/ads/entities/ad.entity";
+import { AdvertiserService } from "src/advertisers/advertiser.service";
 
 export interface CreateFullCampaignInput {
     advertiserId: string;
@@ -41,6 +42,7 @@ export class CampaignService {
         private readonly notificationService: NotificationService,
         private readonly transactionService: TransactionService,
         private readonly minioService: MinioService,
+        private readonly advertiserService: AdvertiserService,
         @InjectDataSource()
         private readonly dataSource: DataSource,
     ) {}
@@ -50,7 +52,7 @@ export class CampaignService {
             const campaign = await this.campaignRepository.create(campaignData);
             const savedCampaign = await this.campaignRepository.save(campaign);
             await this.transactionService.createTransaction({
-                advertiserId: campaignData.advertiserId,
+                advertiserId: await this.advertiserService.resolvePayerId(savedCampaign.advertiserId),
                 referenceId: savedCampaign.id,
                 amount: campaignData.totalBudget || 0,
                 paymentMethod,
@@ -62,11 +64,13 @@ export class CampaignService {
         }
     }
 
-    async findCampaignList(advertiserId?: string): Promise<(Campaign & { transaction: Transactions | null })[]> {
+    async findCampaignList(advertiserIds?: string[]): Promise<(Campaign & { transaction: Transactions | null })[]> {
         try {
+            if (advertiserIds && advertiserIds.length === 0) return [];
             const campaigns = await this.campaignRepository.find({
-                where: advertiserId ? { advertiserId } : {},
-                relations: ['advertiser'],
+                where: advertiserIds ? { advertiserId: In(advertiserIds) } : {},
+                relations: { advertiser: true },
+                select: { advertiser: { id: true, name: true } },
             });
             if (campaigns.length === 0) return [];
             const campaignIds = campaigns.map(c => c.id);
@@ -104,7 +108,7 @@ export class CampaignService {
 
             if (updateData.totalBudget !== undefined || paymentMethod !== undefined) {
                 await this.transactionService.updateTransactionByReference(id, 'campaign', {
-                    advertiserId: updatedCampaign.advertiserId,
+                    advertiserId: await this.advertiserService.resolvePayerId(updatedCampaign.advertiserId),
                     amount: updateData.totalBudget ?? updatedCampaign.totalBudget,
                     paymentMethod: paymentMethod ?? 'cash'
                 });
@@ -209,6 +213,7 @@ export class CampaignService {
         try {
             const assetPath = await this.minioService.upload(file, `ad-creatives/${input.advertiserId}`);
             const isAdmin = input.role === 'admin';
+            const payerId = await this.advertiserService.resolvePayerId(input.advertiserId);
 
             return await this.dataSource.transaction(async (manager) => {
                 const creative = manager.create(AdCreative, {
@@ -253,7 +258,7 @@ export class CampaignService {
                 const savedAd = await manager.save(ad);
 
                 const transaction = manager.create(Transactions, {
-                    advertiserId: input.advertiserId,
+                    advertiserId: payerId,
                     paymentMethod: input.paymentMethod,
                     amount: input.totalBudget,
                     referenceType: 'campaign',

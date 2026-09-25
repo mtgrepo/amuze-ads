@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
+import { Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { memoryStorage } from "multer";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
@@ -12,13 +12,15 @@ import { CreateFullCampaignDto } from "./dto/create-full-campaign.dto";
 import { RolesGuard } from "../auth/roles.guard";
 import { Roles } from "../auth/roles.decorator";
 import { CAMPAIGN_SELF_SERVICE_TRANSITIONS } from "./campaign-status";
+import { AdvertiserService } from "src/advertisers/advertiser.service";
 
 @UseGuards(JwtAuthGuard)
 @Controller('campaigns')
 export class CampaignController {
 
     constructor(
-        private readonly campaignService: CampaignService
+        private readonly campaignService: CampaignService,
+        private readonly advertiserService: AdvertiserService,
     ) {}
 
     private calculateEndDate(startDate: Date, totalBudget: number, dailyBudget: number): Date {
@@ -31,11 +33,12 @@ export class CampaignController {
     @Post()
     async createCampaign(@Body() campaignData: CreateCampaignDTO, @CurrentUser() user: CurrentUserPayload) {
         const { paymentMethod, advertiserId, ...rest } = campaignData;
+        const targetAdvertiserId = await this.advertiserService.resolveTargetAdvertiserId(user, advertiserId);
         const startDate = new Date(rest.startDate);
         const endDate = this.calculateEndDate(startDate, rest.totalBudget, rest.dailyBudget);
         const campaign = await this.campaignService.createCampaign({
             ...rest,
-            advertiserId: user.role === 'admin' ? advertiserId : user.id,
+            advertiserId: targetAdvertiserId,
             startDate,
             endDate,
             spentAmount: 0,
@@ -47,8 +50,10 @@ export class CampaignController {
     }
 
     @Get()
-    async findCampaigns(@CurrentUser() user: CurrentUserPayload) {
-        const campaigns = await this.campaignService.findCampaignList(user.role === 'admin' ? undefined : user.id);
+    async findCampaigns(@CurrentUser() user: CurrentUserPayload, @Query('advertiserId') advertiserId?: string) {
+        const campaigns = await this.campaignService.findCampaignList(
+            await this.advertiserService.resolveListScope(user, advertiserId),
+        );
         return {
             data: campaigns,
             message: 'Campaigns found successfully',
@@ -136,10 +141,7 @@ export class CampaignController {
         @UploadedFile() file: Express.Multer.File,
         @CurrentUser() user: CurrentUserPayload,
     ) {
-        const advertiserId = user.role === 'admin' ? dto.advertiserId : user.id;
-        if (!advertiserId) {
-            throw new BadRequestException('advertiserId is required');
-        }
+        const advertiserId = await this.advertiserService.resolveTargetAdvertiserId(user, dto.advertiserId);
 
         const startDate = new Date(dto.startDate);
         const endDate = new Date(dto.endDate);

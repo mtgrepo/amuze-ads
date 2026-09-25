@@ -7,12 +7,14 @@ import { CampaignController } from "./campaign.controller";
 import { NotificationModule } from "../notifications/notification.module";
 import { TransactionModule } from "../transactions/transaction.module";
 import { CampaignOwnershipGuard } from "./campaign-ownership.guard";
+import { AdvertiserModule } from "src/advertisers/advertiser.module";
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Campaign, Ad]),
     NotificationModule,
     TransactionModule,
+    AdvertiserModule,
   ],
   providers: [CampaignService, CampaignOwnershipGuard],
   controllers: [CampaignController],
