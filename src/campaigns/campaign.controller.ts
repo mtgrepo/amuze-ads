@@ -126,6 +126,16 @@ export class CampaignController {
         }
     }
 
+    @UseGuards(CampaignOwnershipGuard)
+    @Post(':id/pay')
+    async pay(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
+        const campaign = await this.campaignService.payCampaign(id, user.role);
+        return {
+            data: campaign,
+            message: 'Payment recorded successfully',
+        }
+    }
+
     @Post('full')
     @UseInterceptors(FileInterceptor('asset', { storage: memoryStorage() }))
     async createFullCampaign(

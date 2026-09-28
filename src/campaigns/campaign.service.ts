@@ -11,6 +11,7 @@ import { AdCreative } from "src/ad-creatives/entities/ad-creative.entity";
 import { AdSet } from "src/ad-sets/entities/ad-sets.entity";
 import { Ad } from "src/ads/entities/ad.entity";
 import { AdvertiserService } from "src/advertisers/advertiser.service";
+import { DEFAULT_PAYMENT_METHOD } from "src/transactions/payment";
 
 // Budget and schedule together set the amount paid, so they're editable only while draft.
 const BUDGET_FIELDS = ['budgetPlan', 'dailyBudget', 'totalBudget', 'startDate', 'endDate'] as const;
@@ -129,6 +130,50 @@ export class CampaignService {
             if (error instanceof BadRequestException) throw error;
             throw new NotAcceptableException(error.message);
         }
+    }
+
+    /** Records the (KBZPay) payment for a draft campaign and releases it: active for admins, pending review otherwise. */
+    async payCampaign(id: string, role: string): Promise<Campaign> {
+        const nextStatus = role === 'admin' ? 'active' : 'pending';
+        const paid = await this.dataSource.transaction(async (manager) => {
+            // Row lock so two quick "Pay" clicks can't both record a payment.
+            const campaign = await manager.findOne(Campaign, { where: { id }, lock: { mode: 'pessimistic_write' } });
+            if (!campaign) {
+                throw new BadRequestException('Campaign not found');
+            }
+            if (campaign.status !== 'draft') {
+                throw new BadRequestException('Only a draft ad can be paid');
+            }
+
+            const payerId = await this.advertiserService.resolvePayerId(campaign.advertiserId);
+            await manager.save(manager.create(Transactions, {
+                advertiserId: payerId,
+                paymentMethod: DEFAULT_PAYMENT_METHOD,
+                amount: campaign.totalBudget,
+                referenceType: 'campaign',
+                referenceId: campaign.id,
+            }));
+
+            campaign.status = nextStatus;
+            await manager.save(campaign);
+            await manager
+                .createQueryBuilder()
+                .update(Ad)
+                .set({ status: nextStatus })
+                .where('status = :draft', { draft: 'draft' })
+                .andWhere('ad_set_id IN (SELECT id FROM ad_sets WHERE campaign_id = :campaignId)', { campaignId: campaign.id })
+                .execute();
+            return campaign;
+        });
+
+        await this.notificationService.createNotification({
+            advertiserId: paid.advertiserId,
+            title: "Notification about Payment",
+            message: nextStatus === 'active'
+                ? `Payment received. Your Ad is now active !`
+                : `Payment received. Your Ad has been submitted for review !`,
+        });
+        return paid;
     }
 
     @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)

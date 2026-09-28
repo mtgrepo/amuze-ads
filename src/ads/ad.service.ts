@@ -46,7 +46,7 @@ export class AdService {
             .leftJoin('adSet.campaign', 'campaign')
             .leftJoin('campaign.advertiser', 'advertiser')
             .where(advertiserIds ? 'advertiser.id IN (:...advertiserIds)' : '1=1', { advertiserIds })
-            .addSelect(['adSet.ageMin', 'adSet.ageMax', 'adSet.gender', 'campaign.name', 'campaign.budgetPlan', 'advertiser.id', 'advertiser.name'])
+            .addSelect(['adSet.ageMin', 'adSet.ageMax', 'adSet.gender', 'campaign.id', 'campaign.name', 'campaign.budgetPlan', 'campaign.totalBudget', 'campaign.status', 'advertiser.id', 'advertiser.name'])
             .getMany();
 
             return data;
