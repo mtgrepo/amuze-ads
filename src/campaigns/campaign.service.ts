@@ -49,7 +49,9 @@ export class CampaignService {
 
     async createCampaign(campaignData: Partial<Campaign>, paymentMethod: string): Promise<Campaign> {
         try {
-            const campaign = await this.campaignRepository.create(campaignData);
+            // Drop relation/id keys an unwhitelisted body could carry; the owner is campaignData.advertiserId, already resolved.
+            const { id: _id, advertiser: _advertiser, ...safeData } = campaignData;
+            const campaign = await this.campaignRepository.create(safeData);
             const savedCampaign = await this.campaignRepository.save(campaign);
             await this.transactionService.createTransaction({
                 advertiserId: await this.advertiserService.resolvePayerId(savedCampaign.advertiserId),
@@ -103,7 +105,9 @@ export class CampaignService {
             if (!campaign) {
                 throw new Error("Campaign not found");
             }
-            Object.assign(campaign, updateData);
+            // The owner (and the row id) never change on update.
+            const { id: _id, advertiserId: _advertiserId, advertiser: _advertiser, ...safeUpdate } = updateData;
+            Object.assign(campaign, safeUpdate);
             const updatedCampaign = await this.campaignRepository.save(campaign);
 
             if (updateData.totalBudget !== undefined || paymentMethod !== undefined) {

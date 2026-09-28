@@ -18,11 +18,15 @@ export class AdvertiserService {
 
     async createAdvertiser(advertiserData: Partial<Advertiser>): Promise<Advertiser> {
         try {
-            if (advertiserData.password) {
-                advertiserData.password = await hashPassword(advertiserData.password);
-            }
+            // Explicit fields only: the body is unwhitelisted, and relation keys
+            // (agency, clients, id) would otherwise link this account to others.
             const advertiser = this.advertiserRepository.create({
-                ...advertiserData,
+                name: advertiserData.name,
+                email: advertiserData.email,
+                phone: advertiserData.phone,
+                status: advertiserData.status,
+                verified: advertiserData.verified,
+                password: advertiserData.password ? await hashPassword(advertiserData.password) : advertiserData.password,
                 type: 'advertiser',
                 agencyId: null,
             });
@@ -104,9 +108,12 @@ export class AdvertiserService {
         if (!requestedId) {
             throw new BadRequestException('advertiserId is required');
         }
-        const target = await this.advertiserRepository.findOne({ where: { id: requestedId }, select: ['id', 'type', 'agencyId'] });
+        const target = await this.advertiserRepository.findOne({ where: { id: requestedId }, select: ['id', 'type', 'agencyId', 'status'] });
         if (!target || target.type !== 'advertiser') {
             throw new BadRequestException('advertiserId must reference an advertiser account');
+        }
+        if (target.status === 'inactive') {
+            throw new BadRequestException('This advertiser is inactive');
         }
         if (user.role === 'agency' && target.agencyId !== user.id) {
             throw new ForbiddenException('This advertiser is not one of your clients');
@@ -228,11 +235,16 @@ export class AdvertiserService {
             if (!advertiser) {
                 throw new NotAcceptableException("Advertiser not found");
             }
-            if (updateData.password) {
-                updateData.password = await hashPassword(updateData.password);
-            }
-            const { type: _type, agencyId: _agencyId, agency: _agency, clients: _clients, ...safeUpdate } = updateData;
-            Object.assign(advertiser, safeUpdate);
+            // Explicit fields only: an unwhitelisted body could otherwise swap `id`
+            // (retargeting the save to another row) or set type/agency relations.
+            const editable: Partial<Advertiser> = {};
+            if (updateData.name !== undefined) editable.name = updateData.name;
+            if (updateData.email !== undefined) editable.email = updateData.email;
+            if (updateData.phone !== undefined) editable.phone = updateData.phone;
+            if (updateData.status !== undefined) editable.status = updateData.status;
+            if (updateData.verified !== undefined) editable.verified = updateData.verified;
+            if (updateData.password) editable.password = await hashPassword(updateData.password);
+            Object.assign(advertiser, editable);
             return await this.advertiserRepository.save(advertiser);
         } catch (error) {
             throw new NotAcceptableException(error.message);

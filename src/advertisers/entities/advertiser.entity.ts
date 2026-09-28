@@ -7,6 +7,8 @@ import {
   OneToMany,
   ManyToOne,
   JoinColumn,
+  Check,
+  Index,
 } from 'typeorm';
 import type { AdvertiserType } from '../advertiser-type';
 import { AdvertiserProfile } from '../../advertiser-profile/entities/advertiser-profile.entity';
@@ -14,7 +16,12 @@ import { Transactions } from 'src/transactions/entities/transaction.entity';
 import { Notification } from 'src/notifications/entities/notification.entity';
 import { Campaign } from 'src/campaigns/entities/campaign.entity';
 
+// Mirrors migration 1790294400000-AddAgencyAccounts so migration:generate sees no drift.
 @Entity('advertisers')
+@Check('CHK_advertisers_type', `"type" IN ('agency', 'advertiser')`)
+@Check('CHK_advertisers_agency_has_no_agency', `NOT ("type" = 'agency' AND "agency_id" IS NOT NULL)`)
+@Check('CHK_advertisers_login_credentials', `"agency_id" IS NOT NULL OR ("email" IS NOT NULL AND "password" IS NOT NULL)`)
+@Index('IDX_advertisers_agency_id', ['agencyId'])
 export class Advertiser {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -44,7 +51,7 @@ export class Advertiser {
   agencyId: string | null;
 
   @ManyToOne(() => Advertiser, (agency) => agency.clients, { nullable: true, onDelete: 'RESTRICT' })
-  @JoinColumn({ name: 'agency_id' })
+  @JoinColumn({ name: 'agency_id', foreignKeyConstraintName: 'FK_advertisers_agency' })
   agency: Advertiser | null;
 
   @OneToMany(() => Advertiser, (client) => client.agency)

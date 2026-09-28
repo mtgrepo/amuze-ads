@@ -19,8 +19,12 @@ export class AdCreativeService {
 
     async create(dto: CreateAdCreativeDto, assetPath: string): Promise<AdCreative> {
         try {
+            // Only the DTO's own fields: relation/id keys in an unwhitelisted body could override the resolved owner.
             const creative = this.adCreativeRepository.create({
-                ...dto,
+                advertiserId: dto.advertiserId,
+                name: dto.name,
+                assetType: dto.assetType,
+                destinationLink: dto.destinationLink,
                 asset: assetPath,
                 status: 'active',
             });
@@ -51,7 +55,10 @@ export class AdCreativeService {
 
     async update(id: string, dto: UpdateAdCreativeDto, assetPath?: string): Promise<AdCreative> {
         const creative = await this.findOne(id);
-        Object.assign(creative, dto);
+        // The owner never changes on update.
+        if (dto.name !== undefined) creative.name = dto.name;
+        if (dto.assetType !== undefined) creative.assetType = dto.assetType;
+        if (dto.destinationLink !== undefined) creative.destinationLink = dto.destinationLink;
         if (assetPath) {
             creative.asset = assetPath;
         }
