@@ -175,11 +175,20 @@ export class AdvertiserService {
 
     /**
      * Advertiser ids a list/stats query should cover.
-     * No requestedId → everything the user may see. With requestedId → just that advertiser, if the user may see it.
+     * No requestedId → everything the user may see. An agency id → all of that agency's clients combined.
+     * Any other id → just that advertiser, if the user may see it.
      */
     async resolveListScope(user: CurrentUserPayload, requestedId?: string): Promise<string[] | undefined> {
         if (!requestedId) {
             return this.getScopedAdvertiserIds(user);
+        }
+        const requested = await this.advertiserRepository.findOne({ where: { id: requestedId }, select: ['id', 'type'] });
+        if (requested?.type === 'agency') {
+            if (user.role !== 'admin' && user.id !== requested.id) {
+                throw new ForbiddenException('You cannot view this advertiser');
+            }
+            const clients = await this.advertiserRepository.find({ where: { agencyId: requested.id }, select: ['id'] });
+            return clients.map((c) => c.id);
         }
         if (!(await this.canAccessAdvertiser(user, requestedId))) {
             throw new ForbiddenException('You cannot view this advertiser');
