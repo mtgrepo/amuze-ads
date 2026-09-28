@@ -1,4 +1,4 @@
-import { Injectable, NotAcceptableException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotAcceptableException } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { Campaign } from "./entities/campaign.entity";
 import { DataSource, In, Repository } from "typeorm";
@@ -12,16 +12,17 @@ import { AdSet } from "src/ad-sets/entities/ad-sets.entity";
 import { Ad } from "src/ads/entities/ad.entity";
 import { AdvertiserService } from "src/advertisers/advertiser.service";
 
+// Budget and schedule together set the amount paid, so they're editable only while draft.
+const BUDGET_FIELDS = ['budgetPlan', 'dailyBudget', 'totalBudget', 'startDate', 'endDate'] as const;
+
 export interface CreateFullCampaignInput {
     advertiserId: string;
-    role: string;
     name: string;
     budgetPlan: string;
     dailyBudget: number;
     totalBudget: number;
     startDate: Date;
     endDate: Date;
-    paymentMethod: string;
     creativeName: string;
     assetType: string;
     destinationLink: string;
@@ -47,20 +48,12 @@ export class CampaignService {
         private readonly dataSource: DataSource,
     ) {}
 
-    async createCampaign(campaignData: Partial<Campaign>, paymentMethod: string): Promise<Campaign> {
+    async createCampaign(campaignData: Partial<Campaign>): Promise<Campaign> {
         try {
             // Drop relation/id keys an unwhitelisted body could carry; the owner is campaignData.advertiserId, already resolved.
             const { id: _id, advertiser: _advertiser, ...safeData } = campaignData;
             const campaign = await this.campaignRepository.create(safeData);
-            const savedCampaign = await this.campaignRepository.save(campaign);
-            await this.transactionService.createTransaction({
-                advertiserId: await this.advertiserService.resolvePayerId(savedCampaign.advertiserId),
-                referenceId: savedCampaign.id,
-                amount: campaignData.totalBudget || 0,
-                paymentMethod,
-                referenceType: "campaign",
-            });
-            return savedCampaign;
+            return await this.campaignRepository.save(campaign);
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
@@ -99,27 +92,41 @@ export class CampaignService {
         }
     }
 
-    async updateCampaign(id: string, updateData: Partial<Campaign>, paymentMethod?: string): Promise<Campaign> {
+    async updateCampaign(id: string, updateData: Partial<Campaign>): Promise<Campaign> {
         try {
             const campaign = await this.findCampaignById(id);
             if (!campaign) {
                 throw new Error("Campaign not found");
             }
-            // The owner (and the row id) never change on update.
-            const { id: _id, advertiserId: _advertiserId, advertiser: _advertiser, ...safeUpdate } = updateData;
-            Object.assign(campaign, safeUpdate);
-            const updatedCampaign = await this.campaignRepository.save(campaign);
-
-            if (updateData.totalBudget !== undefined || paymentMethod !== undefined) {
-                await this.transactionService.updateTransactionByReference(id, 'campaign', {
-                    advertiserId: await this.advertiserService.resolvePayerId(updatedCampaign.advertiserId),
-                    amount: updateData.totalBudget ?? updatedCampaign.totalBudget,
-                    paymentMethod: paymentMethod ?? 'cash'
-                });
+            // Only the name and budget/schedule are editable here. Status, owner and payment
+            // never change through this endpoint (status leaves draft only via payCampaign).
+            const editable: Partial<Campaign> = {};
+            if (updateData.name !== undefined) editable.name = updateData.name;
+            for (const key of BUDGET_FIELDS) {
+                if (updateData[key] !== undefined) (editable as any)[key] = updateData[key];
+            }
+            const touchesBudget = BUDGET_FIELDS.some((key) => editable[key] !== undefined);
+            if (touchesBudget && campaign.status !== 'draft') {
+                throw new BadRequestException('Budget can only be changed while the ad is a draft');
             }
 
-            return updatedCampaign;
+            Object.assign(campaign, editable);
+            if (touchesBudget) {
+                if (new Date(campaign.endDate) < new Date(campaign.startDate)) {
+                    throw new BadRequestException('End date must be on or after the start date');
+                }
+                // The server owns the total so the amount paid always matches the schedule.
+                if (campaign.budgetPlan === 'daily') {
+                    const msPerDay = 24 * 60 * 60 * 1000;
+                    const days = Math.floor((new Date(campaign.endDate).getTime() - new Date(campaign.startDate).getTime()) / msPerDay) + 1;
+                    campaign.totalBudget = campaign.dailyBudget * Math.max(days, 1);
+                } else {
+                    campaign.dailyBudget = 0;
+                }
+            }
+            return await this.campaignRepository.save(campaign);
         } catch (error) {
+            if (error instanceof BadRequestException) throw error;
             throw new NotAcceptableException(error.message);
         }
     }
@@ -216,8 +223,6 @@ export class CampaignService {
     async createFullCampaign(input: CreateFullCampaignInput, file: Express.Multer.File) {
         try {
             const assetPath = await this.minioService.upload(file, `ad-creatives/${input.advertiserId}`);
-            const isAdmin = input.role === 'admin';
-            const payerId = await this.advertiserService.resolvePayerId(input.advertiserId);
 
             return await this.dataSource.transaction(async (manager) => {
                 const creative = manager.create(AdCreative, {
@@ -239,7 +244,8 @@ export class CampaignService {
                     spentAmount: 0,
                     startDate: input.startDate,
                     endDate: input.endDate,
-                    status: isAdmin ? 'active' : 'pending',
+                    // Every new ad is a draft until it's paid (see payCampaign).
+                    status: 'draft',
                     modelType: 'display_ads',
                 });
                 const savedCampaign = await manager.save(campaign);
@@ -257,18 +263,9 @@ export class CampaignService {
                     adCreativeId: savedCreative.id,
                     adType: input.adType,
                     placementKey: input.placementKey,
-                    status: isAdmin ? 'active' : 'pending',
+                    status: 'draft',
                 });
                 const savedAd = await manager.save(ad);
-
-                const transaction = manager.create(Transactions, {
-                    advertiserId: payerId,
-                    paymentMethod: input.paymentMethod,
-                    amount: input.totalBudget,
-                    referenceType: 'campaign',
-                    referenceId: savedCampaign.id,
-                });
-                await manager.save(transaction);
 
                 return { campaign: savedCampaign, adSet: savedAdSet, ad: savedAd, adCreative: savedCreative };
             });

@@ -24,14 +24,6 @@ export class CreateCampaignDTO {
     @IsDateString()
     startDate: string
 
-    @IsNotEmpty()
-    @IsString()
-    paymentMethod: string
-
-    @IsNotEmpty()
-    @IsString()
-    status: string
-
     @IsOptional()
     @IsString()
     advertiserId?: string

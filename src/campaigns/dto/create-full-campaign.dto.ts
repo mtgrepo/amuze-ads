@@ -36,10 +36,6 @@ export class CreateFullCampaignDto {
 
     @IsNotEmpty()
     @IsString()
-    paymentMethod: string
-
-    @IsNotEmpty()
-    @IsString()
     creativeName: string
 
     @IsNotEmpty()

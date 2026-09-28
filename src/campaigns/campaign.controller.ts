@@ -32,17 +32,19 @@ export class CampaignController {
 
     @Post()
     async createCampaign(@Body() campaignData: CreateCampaignDTO, @CurrentUser() user: CurrentUserPayload) {
-        const { paymentMethod, advertiserId, ...rest } = campaignData;
+        const { advertiserId, ...rest } = campaignData;
         const targetAdvertiserId = await this.advertiserService.resolveTargetAdvertiserId(user, advertiserId);
         const startDate = new Date(rest.startDate);
         const endDate = this.calculateEndDate(startDate, rest.totalBudget, rest.dailyBudget);
+        // Always a draft; it leaves draft only through POST /campaigns/:id/pay.
         const campaign = await this.campaignService.createCampaign({
             ...rest,
             advertiserId: targetAdvertiserId,
             startDate,
             endDate,
             spentAmount: 0,
-        }, paymentMethod);
+            status: 'draft',
+        });
         return {
             data: campaign,
             message: 'Campaign created successfully',
@@ -73,22 +75,12 @@ export class CampaignController {
     @UseGuards(CampaignOwnershipGuard)
     @Patch(':id/update')
     async update(@Param('id') id: string, @Body() updateData: UpdateCampaignDTO) {
-        const { startDate, paymentMethod, ...rest } = updateData;
-
-        let endDate: Date | undefined;
-        if (startDate || updateData.totalBudget !== undefined || updateData.dailyBudget !== undefined) {
-            const existing = await this.campaignService.findCampaignById(id);
-            const resolvedStartDate = startDate ? new Date(startDate) : existing.startDate;
-            const resolvedTotalBudget = updateData.totalBudget ?? existing.totalBudget;
-            const resolvedDailyBudget = updateData.dailyBudget ?? existing.dailyBudget;
-            endDate = this.calculateEndDate(resolvedStartDate, resolvedTotalBudget, resolvedDailyBudget);
-        }
-
+        const { startDate, endDate, ...rest } = updateData;
         const campaign = await this.campaignService.updateCampaign(id, {
             ...rest,
             ...(startDate && { startDate: new Date(startDate) }),
-            ...(endDate && { endDate }),
-        }, paymentMethod);
+            ...(endDate && { endDate: new Date(endDate) }),
+        });
         return {
             data: campaign,
             message: 'Campaign updated successfully',
@@ -150,14 +142,12 @@ export class CampaignController {
 
         const result = await this.campaignService.createFullCampaign({
             advertiserId,
-            role: user.role,
             name: dto.name,
             budgetPlan: dto.budgetPlan,
             dailyBudget,
             totalBudget,
             startDate,
             endDate,
-            paymentMethod: dto.paymentMethod,
             creativeName: dto.creativeName,
             assetType: dto.assetType,
             destinationLink: dto.destinationLink,
