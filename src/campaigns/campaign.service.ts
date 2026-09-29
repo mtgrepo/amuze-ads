@@ -333,7 +333,10 @@ export class CampaignService {
             if(campaign.status !== 'pending') {
                 throw new NotAcceptableException('Only pending campaigns can be approved');
             }
-            return this.changeCampaignStatus(id, 'active')
+            const approved = await this.changeCampaignStatus(id, 'active');
+            // Serving needs both the ad and its campaign active, so the ads move with the campaign.
+            await this.moveCampaignAds(id, 'pending', 'active');
+            return approved;
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
@@ -343,12 +346,25 @@ export class CampaignService {
         try {
             const campaign = await this.findCampaignById(id);
             if(campaign.status !== 'pending') {
-                throw new NotAcceptableException('Only pending campaigns can be approved');
+                throw new NotAcceptableException('Only pending campaigns can be rejected');
             }
-            return this.changeCampaignStatus(id, 'rejected')
+            const rejected = await this.changeCampaignStatus(id, 'rejected');
+            await this.moveCampaignAds(id, 'pending', 'rejected');
+            return rejected;
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
+    }
+
+    /** Moves the campaign's ads that are in `from` to `to` (e.g. pending ads when the campaign is approved). */
+    private async moveCampaignAds(campaignId: string, from: string, to: string): Promise<void> {
+        await this.adRepository
+            .createQueryBuilder()
+            .update(Ad)
+            .set({ status: to })
+            .where('status = :from', { from })
+            .andWhere('ad_set_id IN (SELECT id FROM ad_sets WHERE campaign_id = :campaignId)', { campaignId })
+            .execute();
     }
 
     async createFullCampaign(input: CreateFullCampaignInput, file: Express.Multer.File) {
