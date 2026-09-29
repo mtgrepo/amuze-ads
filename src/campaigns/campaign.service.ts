@@ -16,6 +16,39 @@ import { DEFAULT_PAYMENT_METHOD } from "src/transactions/payment";
 // Budget and schedule together set the amount paid, so they're editable only while draft.
 const BUDGET_FIELDS = ['budgetPlan', 'dailyBudget', 'totalBudget', 'startDate', 'endDate'] as const;
 
+type BudgetShape = Pick<Campaign, 'budgetPlan' | 'dailyBudget' | 'totalBudget' | 'startDate' | 'endDate'>;
+
+/**
+ * Validates a campaign's budget and makes the server the owner of the amount paid:
+ * a daily plan's total is daily × days (inclusive), a total plan has no daily amount.
+ */
+function normalizeBudget(budget: BudgetShape): void {
+    const start = new Date(budget.startDate).getTime();
+    const end = new Date(budget.endDate).getTime();
+    if (isNaN(start) || isNaN(end)) {
+        throw new BadRequestException('Start and end dates are required');
+    }
+    if (end < start) {
+        throw new BadRequestException('End date must be on or after the start date');
+    }
+    budget.budgetPlan = budget.budgetPlan === 'total' ? 'total' : 'daily';
+    if (budget.budgetPlan === 'daily') {
+        const dailyBudget = Number(budget.dailyBudget);
+        if (!(dailyBudget >= 1)) {
+            throw new BadRequestException('Daily budget must be at least 1');
+        }
+        const days = Math.round((end - start) / (24 * 60 * 60 * 1000)) + 1;
+        budget.dailyBudget = dailyBudget;
+        budget.totalBudget = dailyBudget * days;
+    } else {
+        budget.dailyBudget = 0;
+        budget.totalBudget = Number(budget.totalBudget);
+    }
+    if (!(budget.totalBudget >= 1)) {
+        throw new BadRequestException('Total budget must be at least 1');
+    }
+}
+
 export interface CreateFullCampaignInput {
     advertiserId: string;
     name: string;
@@ -54,8 +87,10 @@ export class CampaignService {
             // Drop relation/id keys an unwhitelisted body could carry; the owner is campaignData.advertiserId, already resolved.
             const { id: _id, advertiser: _advertiser, ...safeData } = campaignData;
             const campaign = await this.campaignRepository.create(safeData);
+            normalizeBudget(campaign);
             return await this.campaignRepository.save(campaign);
         } catch (error) {
+            if (error instanceof BadRequestException) throw error;
             throw new NotAcceptableException(error.message);
         }
     }
@@ -95,37 +130,31 @@ export class CampaignService {
 
     async updateCampaign(id: string, updateData: Partial<Campaign>): Promise<Campaign> {
         try {
-            const campaign = await this.findCampaignById(id);
-            if (!campaign) {
-                throw new Error("Campaign not found");
-            }
-            // Only the name and budget/schedule are editable here. Status, owner and payment
-            // never change through this endpoint (status leaves draft only via payCampaign).
-            const editable: Partial<Campaign> = {};
-            if (updateData.name !== undefined) editable.name = updateData.name;
-            for (const key of BUDGET_FIELDS) {
-                if (updateData[key] !== undefined) (editable as any)[key] = updateData[key];
-            }
-            const touchesBudget = BUDGET_FIELDS.some((key) => editable[key] !== undefined);
-            if (touchesBudget && campaign.status !== 'draft') {
-                throw new BadRequestException('Budget can only be changed while the ad is a draft');
-            }
+            // Same row lock as payCampaign: a budget save and a payment can't interleave,
+            // so a paid campaign is never written back to draft or re-priced.
+            return await this.dataSource.transaction(async (manager) => {
+                const campaign = await manager.findOne(Campaign, { where: { id }, lock: { mode: 'pessimistic_write' } });
+                if (!campaign) {
+                    throw new BadRequestException('Campaign not found');
+                }
+                // Only the name and budget/schedule are editable here. Status, owner and payment
+                // never change through this endpoint (status leaves draft only via payCampaign).
+                const editable: Partial<Campaign> = {};
+                if (updateData.name !== undefined) editable.name = updateData.name;
+                for (const key of BUDGET_FIELDS) {
+                    if (updateData[key] !== undefined) (editable as any)[key] = updateData[key];
+                }
+                const touchesBudget = BUDGET_FIELDS.some((key) => editable[key] !== undefined);
+                if (touchesBudget && campaign.status !== 'draft') {
+                    throw new BadRequestException('Budget can only be changed while the ad is a draft');
+                }
 
-            Object.assign(campaign, editable);
-            if (touchesBudget) {
-                if (new Date(campaign.endDate) < new Date(campaign.startDate)) {
-                    throw new BadRequestException('End date must be on or after the start date');
+                Object.assign(campaign, editable);
+                if (touchesBudget) {
+                    normalizeBudget(campaign);
                 }
-                // The server owns the total so the amount paid always matches the schedule.
-                if (campaign.budgetPlan === 'daily') {
-                    const msPerDay = 24 * 60 * 60 * 1000;
-                    const days = Math.floor((new Date(campaign.endDate).getTime() - new Date(campaign.startDate).getTime()) / msPerDay) + 1;
-                    campaign.totalBudget = campaign.dailyBudget * Math.max(days, 1);
-                } else {
-                    campaign.dailyBudget = 0;
-                }
-            }
-            return await this.campaignRepository.save(campaign);
+                return await manager.save(campaign);
+            });
         } catch (error) {
             if (error instanceof BadRequestException) throw error;
             throw new NotAcceptableException(error.message);
@@ -143,6 +172,9 @@ export class CampaignService {
             }
             if (campaign.status !== 'draft') {
                 throw new BadRequestException('Only a draft ad can be paid');
+            }
+            if (!(Number(campaign.totalBudget) >= 1)) {
+                throw new BadRequestException('This ad has no budget to pay for');
             }
 
             const payerId = await this.advertiserService.resolvePayerId(campaign.advertiserId);
@@ -267,6 +299,16 @@ export class CampaignService {
 
     async createFullCampaign(input: CreateFullCampaignInput, file: Express.Multer.File) {
         try {
+            // Validate and price the budget before uploading, so a rejected ad leaves no orphan asset.
+            const budget = {
+                budgetPlan: input.budgetPlan,
+                dailyBudget: input.dailyBudget,
+                totalBudget: input.totalBudget,
+                startDate: input.startDate,
+                endDate: input.endDate,
+            } as BudgetShape;
+            normalizeBudget(budget);
+
             const assetPath = await this.minioService.upload(file, `ad-creatives/${input.advertiserId}`);
 
             return await this.dataSource.transaction(async (manager) => {
@@ -283,12 +325,8 @@ export class CampaignService {
                 const campaign = manager.create(Campaign, {
                     advertiserId: input.advertiserId,
                     name: input.name,
-                    budgetPlan: input.budgetPlan,
-                    dailyBudget: input.dailyBudget,
-                    totalBudget: input.totalBudget,
+                    ...budget,
                     spentAmount: 0,
-                    startDate: input.startDate,
-                    endDate: input.endDate,
                     // Every new ad is a draft until it's paid (see payCampaign).
                     status: 'draft',
                     modelType: 'display_ads',
@@ -315,6 +353,7 @@ export class CampaignService {
                 return { campaign: savedCampaign, adSet: savedAdSet, ad: savedAd, adCreative: savedCreative };
             });
         } catch (error) {
+            if (error instanceof BadRequestException) throw error;
             throw new NotAcceptableException(error.message);
         }
     }

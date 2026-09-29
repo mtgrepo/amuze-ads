@@ -21,12 +21,14 @@ export class AdService {
 
     async createAd(dto: CreateAdDto): Promise<Ad> {
         try {
+            // An ad added to an unpaid (draft) campaign stays draft; it's released by paying the campaign.
+            const adSet = await this.adSetRepository.findOne({ where: { id: dto.adSetId }, relations: ['campaign'] });
             const ad = this.adRepository.create({
                 adSetId: dto.adSetId,
                 adCreativeId: dto.adCreativeId,
                 adType: dto.adType,
                 placementKey: dto.placementKey,
-                status: 'pending',
+                status: adSet?.campaign?.status === 'draft' ? 'draft' : 'pending',
             });
             const savedAd = await this.adRepository.save(ad);
 
@@ -88,6 +90,9 @@ export class AdService {
         if (ad.status !== 'pending') {
             throw new NotAcceptableException('Only pending ads can be approved');
         }
+        if (ad.adSet?.campaign?.status === 'draft') {
+            throw new NotAcceptableException('This ad has not been paid for yet');
+        }
         return this.updateStatus(id, 'active');
     }
 
@@ -95,6 +100,9 @@ export class AdService {
         const ad = await this.findAdById(id);
         if (ad.status !== 'pending') {
             throw new NotAcceptableException('Only pending ads can be rejected');
+        }
+        if (ad.adSet?.campaign?.status === 'draft') {
+            throw new NotAcceptableException('This ad has not been paid for yet');
         }
         return this.updateStatus(id, 'rejected');
     }
