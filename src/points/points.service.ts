@@ -1,7 +1,9 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { EntityManager, Repository } from "typeorm";
+import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
+import { DataSource, EntityManager, Repository } from "typeorm";
 import { Advertiser } from "src/advertisers/entities/advertiser.entity";
+import { Transactions } from "src/transactions/entities/transaction.entity";
+import { DEFAULT_PAYMENT_METHOD } from "src/transactions/payment";
 import { PointLedger } from "./entities/point-ledger.entity";
 import type { PointLedgerType } from "./point-types";
 
@@ -23,7 +25,36 @@ export class PointsService {
         private ledgerRepository: Repository<PointLedger>,
         @InjectRepository(Advertiser)
         private advertiserRepository: Repository<Advertiser>,
+        @InjectDataSource()
+        private readonly dataSource: DataSource,
     ) {}
+
+    /** Customer buys points. Until a gateway exists the KBZPay payment is only recorded. */
+    async purchase(walletId: string, amount: number): Promise<{ balance: number; entry: PointLedger }> {
+        return this.dataSource.transaction(async (manager) => {
+            const entry = await this.credit(manager, walletId, amount, 'purchase', { note: `Bought with ${DEFAULT_PAYMENT_METHOD}` });
+            const transaction = await manager.save(manager.create(Transactions, {
+                advertiserId: walletId,
+                paymentMethod: DEFAULT_PAYMENT_METHOD,
+                amount,
+                referenceType: 'point_purchase',
+                referenceId: entry.id,
+            }));
+            // Link both ways: the ledger row points at the money record that paid for it.
+            entry.referenceType = 'transaction';
+            entry.referenceId = transaction.id;
+            await manager.save(entry);
+            return { balance: entry.balanceAfter, entry };
+        });
+    }
+
+    /** Admin adds points: 'paid' (customer paid offline) or 'bonus' (promotional). */
+    async topUp(walletId: string, amount: number, kind: 'paid' | 'bonus', note: string, adminId: string): Promise<{ balance: number; entry: PointLedger }> {
+        return this.dataSource.transaction(async (manager) => {
+            const entry = await this.credit(manager, walletId, amount, kind === 'paid' ? 'admin_paid' : 'admin_bonus', { note, createdByAdminId: adminId });
+            return { balance: entry.balanceAfter, entry };
+        });
+    }
 
     private async lockWallet(manager: EntityManager, walletId: string): Promise<Advertiser> {
         const wallet = await manager.findOne(Advertiser, { where: { id: walletId }, lock: { mode: 'pessimistic_write' } });
