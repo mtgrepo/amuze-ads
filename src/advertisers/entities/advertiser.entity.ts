@@ -21,6 +21,7 @@ import { Campaign } from 'src/campaigns/entities/campaign.entity';
 @Check('CHK_advertisers_type', `"type" IN ('agency', 'advertiser')`)
 @Check('CHK_advertisers_agency_has_no_agency', `NOT ("type" = 'agency' AND "agency_id" IS NOT NULL)`)
 @Check('CHK_advertisers_login_credentials', `"agency_id" IS NOT NULL OR ("email" IS NOT NULL AND "password" IS NOT NULL)`)
+@Check('CHK_advertisers_points_balance', `"points_balance" >= 0`)
 @Index('IDX_advertisers_agency_id', ['agencyId'])
 export class Advertiser {
   @PrimaryGeneratedColumn('uuid')
@@ -49,6 +50,10 @@ export class Advertiser {
 
   @Column({ type: 'uuid', name: 'agency_id', nullable: true })
   agencyId: string | null;
+
+  // Points wallet (1 point = 1 MMK). Changed only through PointsService, which also writes point_ledger.
+  @Column({ type: 'integer', name: 'points_balance', default: 0 })
+  pointsBalance: number;
 
   @ManyToOne(() => Advertiser, (agency) => agency.clients, { nullable: true, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'agency_id', foreignKeyConstraintName: 'FK_advertisers_agency' })
