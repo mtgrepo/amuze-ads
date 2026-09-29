@@ -8,6 +8,7 @@ import { NotificationModule } from "../notifications/notification.module";
 import { TransactionModule } from "../transactions/transaction.module";
 import { CampaignOwnershipGuard } from "./campaign-ownership.guard";
 import { AdvertiserModule } from "src/advertisers/advertiser.module";
+import { PointsModule } from "src/points/points.module";
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { AdvertiserModule } from "src/advertisers/advertiser.module";
     NotificationModule,
     TransactionModule,
     AdvertiserModule,
+    PointsModule,
   ],
   providers: [CampaignService, CampaignOwnershipGuard],
   controllers: [CampaignController],

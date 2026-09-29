@@ -127,6 +127,16 @@ export class CampaignController {
     }
 
     @UseGuards(CampaignOwnershipGuard)
+    @Get(':id/payment-info')
+    async paymentInfo(@Param('id') id: string) {
+        const info = await this.campaignService.getPaymentInfo(id);
+        return {
+            data: info,
+            message: 'Payment info retrieved successfully',
+        }
+    }
+
+    @UseGuards(CampaignOwnershipGuard)
     @Post(':id/pay')
     async pay(@Param('id') id: string, @CurrentUser() user: CurrentUserPayload) {
         const campaign = await this.campaignService.payCampaign(id, user.role);

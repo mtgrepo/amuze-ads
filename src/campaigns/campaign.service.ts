@@ -11,7 +11,7 @@ import { AdCreative } from "src/ad-creatives/entities/ad-creative.entity";
 import { AdSet } from "src/ad-sets/entities/ad-sets.entity";
 import { Ad } from "src/ads/entities/ad.entity";
 import { AdvertiserService } from "src/advertisers/advertiser.service";
-import { DEFAULT_PAYMENT_METHOD } from "src/transactions/payment";
+import { PointsService } from "src/points/points.service";
 
 // Budget and schedule together set the amount paid, so they're editable only while draft.
 const BUDGET_FIELDS = ['budgetPlan', 'dailyBudget', 'totalBudget', 'startDate', 'endDate'] as const;
@@ -78,6 +78,7 @@ export class CampaignService {
         private readonly transactionService: TransactionService,
         private readonly minioService: MinioService,
         private readonly advertiserService: AdvertiserService,
+        private readonly pointsService: PointsService,
         @InjectDataSource()
         private readonly dataSource: DataSource,
     ) {}
@@ -161,7 +162,7 @@ export class CampaignService {
         }
     }
 
-    /** Records the (KBZPay) payment for a draft campaign and releases it: active for admins, pending review otherwise. */
+    /** Pays a draft campaign with the payer's points and releases it: active for admins, pending review otherwise. */
     async payCampaign(id: string, role: string): Promise<Campaign> {
         const nextStatus = role === 'admin' ? 'active' : 'pending';
         const paid = await this.dataSource.transaction(async (manager) => {
@@ -177,14 +178,13 @@ export class CampaignService {
                 throw new BadRequestException('This ad has no budget to pay for');
             }
 
+            // The agency pays for its clients; an admin paying spends the customer's points, never their own.
             const payerId = await this.advertiserService.resolvePayerId(campaign.advertiserId);
-            await manager.save(manager.create(Transactions, {
-                advertiserId: payerId,
-                paymentMethod: DEFAULT_PAYMENT_METHOD,
-                amount: campaign.totalBudget,
+            await this.pointsService.debit(manager, payerId, Number(campaign.totalBudget), 'spend', {
                 referenceType: 'campaign',
                 referenceId: campaign.id,
-            }));
+                note: campaign.name,
+            });
 
             campaign.status = nextStatus;
             await manager.save(campaign);
@@ -206,6 +206,22 @@ export class CampaignService {
                 : `Payment received. Your Ad has been submitted for review !`,
         });
         return paid;
+    }
+
+    /** What the Pay dialog shows: the amount and who pays it, with their current balance. */
+    async getPaymentInfo(id: string): Promise<{ amount: number; payerId: string; payerName: string; balance: number }> {
+        const campaign = await this.campaignRepository.findOneBy({ id });
+        if (!campaign) {
+            throw new BadRequestException('Campaign not found');
+        }
+        const payerId = await this.advertiserService.resolvePayerId(campaign.advertiserId);
+        const payer = await this.pointsService.assertWalletOwner(payerId);
+        return {
+            amount: Number(campaign.totalBudget),
+            payerId,
+            payerName: payer.name,
+            balance: payer.pointsBalance,
+        };
     }
 
     @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
@@ -244,12 +260,28 @@ export class CampaignService {
 
     async changeCampaignStatus(id: string, status: string): Promise<Campaign> {
         try {
-            const campaign = await this.findCampaignById(id);
-            if (!campaign) {
-                throw new Error("Campaign not found");
-            }
-            campaign.status = status;
-            const campaignData = await this.campaignRepository.save(campaign);
+            const campaignData = await this.dataSource.transaction(async (manager) => {
+                const campaign = await manager.findOne(Campaign, { where: { id }, lock: { mode: 'pessimistic_write' } });
+                if (!campaign) {
+                    throw new Error("Campaign not found");
+                }
+                campaign.status = status;
+                const saved = await manager.save(campaign);
+                // A rejected ad gets back whatever points it still holds. Uses the net amount,
+                // so rejecting again (ad reject, then campaign reject) never refunds twice.
+                if (status === 'rejected') {
+                    const held = await this.pointsService.netSpentForCampaign(manager, campaign.id);
+                    if (held > 0) {
+                        const payerId = await this.advertiserService.resolvePayerId(campaign.advertiserId);
+                        await this.pointsService.credit(manager, payerId, held, 'refund', {
+                            referenceType: 'campaign',
+                            referenceId: campaign.id,
+                            note: `Ad rejected: ${campaign.name}`,
+                        });
+                    }
+                }
+                return saved;
+            });
             await this.notificationService.createNotification({
                 advertiserId: campaignData?.advertiserId,
                 title: "Notification about Campaign Status",
