@@ -7,6 +7,7 @@ import { NotificationService } from "src/notifications/notification.service";
 import type { CurrentUserPayload } from "src/auth/current-user.decorator";
 import { CreateAccountDTO } from "./dto/create-account.dto";
 import { CreateClientDTO } from "./dto/create-client.dto";
+import { PointLedger } from "src/points/entities/point-ledger.entity";
 
 @Injectable()
 export class AdvertiserService {
@@ -311,6 +312,11 @@ export class AdvertiserService {
             const clientCount = await this.advertiserRepository.count({ where: { agencyId: id } });
             if (clientCount > 0) {
                 throw new NotAcceptableException(`This agency still has ${clientCount} client(s); delete them first`);
+            }
+            // Deleting would cascade away the points ledger and money records; keep the audit trail.
+            const pointsHistory = await this.advertiserRepository.manager.count(PointLedger, { where: { advertiserId: id } });
+            if (pointsHistory > 0) {
+                throw new NotAcceptableException('This account has points history and cannot be deleted; deactivate it instead');
             }
             return await this.advertiserRepository.remove(advertiser);
         } catch (error) {

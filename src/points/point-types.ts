@@ -3,3 +3,5 @@ export const POINT_LEDGER_TYPES = ['purchase', 'admin_paid', 'admin_bonus', 'spe
 export type PointLedgerType = typeof POINT_LEDGER_TYPES[number];
 
 export const MIN_PURCHASE_POINTS = 1000;
+// Per purchase / top-up; keeps amounts well inside the integer balance column.
+export const MAX_POINTS_PER_TRANSACTION = 100_000_000;

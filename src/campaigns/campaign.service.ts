@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotAcceptableException } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { Campaign } from "./entities/campaign.entity";
-import { DataSource, In, Repository } from "typeorm";
+import { DataSource, EntityManager, In, Repository } from "typeorm";
 import { NotificationService } from "../notifications/notification.service";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { TransactionService } from "src/transactions/transaction.service";
@@ -12,6 +12,9 @@ import { AdSet } from "src/ad-sets/entities/ad-sets.entity";
 import { Ad } from "src/ads/entities/ad.entity";
 import { AdvertiserService } from "src/advertisers/advertiser.service";
 import { PointsService } from "src/points/points.service";
+
+// Statuses an ad can only be in once it's fully paid.
+const PAID_STATUSES = ['pending', 'active', 'paused'];
 
 // Budget and schedule together set the amount paid, so they're editable only while draft.
 const BUDGET_FIELDS = ['budgetPlan', 'dailyBudget', 'totalBudget', 'startDate', 'endDate'] as const;
@@ -265,20 +268,21 @@ export class CampaignService {
                 if (!campaign) {
                     throw new Error("Campaign not found");
                 }
+                const previousStatus = campaign.status;
+                const held = await this.pointsService.netSpentForCampaign(manager, campaign.id);
+
+                // Reviewing, serving or paused ads must be paid in full (e.g. a refunded ad can't go live again).
+                if (PAID_STATUSES.includes(status) && held < Number(campaign.totalBudget)) {
+                    throw new BadRequestException('This ad has not been paid for');
+                }
+
                 campaign.status = status;
                 const saved = await manager.save(campaign);
-                // A rejected ad gets back whatever points it still holds. Uses the net amount,
-                // so rejecting again (ad reject, then campaign reject) never refunds twice.
-                if (status === 'rejected') {
-                    const held = await this.pointsService.netSpentForCampaign(manager, campaign.id);
-                    if (held > 0) {
-                        const payerId = await this.advertiserService.resolvePayerId(campaign.advertiserId);
-                        await this.pointsService.credit(manager, payerId, held, 'refund', {
-                            referenceType: 'campaign',
-                            referenceId: campaign.id,
-                            note: `Ad rejected: ${campaign.name}`,
-                        });
-                    }
+
+                // Points come back only when the ad never ran: rejected while under review, or sent back
+                // to draft (where it must be paid again). A delivered ad that is rejected keeps its charge.
+                if ((status === 'rejected' && previousStatus === 'pending') || status === 'draft') {
+                    await this.refundHeldPoints(manager, campaign, held, status === 'draft' ? `Ad returned to draft: ${campaign.name}` : `Ad rejected: ${campaign.name}`);
                 }
                 return saved;
             });
@@ -295,14 +299,32 @@ export class CampaignService {
 
     async deleteCampaign(id: string): Promise<Campaign> {
         try {
-            const campaign = await this.findCampaignById(id);
-            if (!campaign) {
-                throw new Error("Campaign not found");
-            }
-            return await this.campaignRepository.remove(campaign);
+            return await this.dataSource.transaction(async (manager) => {
+                const campaign = await manager.findOne(Campaign, { where: { id }, lock: { mode: 'pessimistic_write' } });
+                if (!campaign) {
+                    throw new Error("Campaign not found");
+                }
+                // A paid ad deleted before review never ran, so its points go back first.
+                if (campaign.status === 'pending') {
+                    const held = await this.pointsService.netSpentForCampaign(manager, campaign.id);
+                    await this.refundHeldPoints(manager, campaign, held, `Ad deleted before review: ${campaign.name}`);
+                }
+                return await manager.remove(campaign);
+            });
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
+    }
+
+    /** Returns the points a campaign still holds to its payer. No-op when nothing is held, so it never double-refunds. */
+    private async refundHeldPoints(manager: EntityManager, campaign: Campaign, held: number, note: string): Promise<void> {
+        if (held <= 0) return;
+        const payerId = await this.advertiserService.resolvePayerId(campaign.advertiserId);
+        await this.pointsService.credit(manager, payerId, held, 'refund', {
+            referenceType: 'campaign',
+            referenceId: campaign.id,
+            note,
+        });
     }
 
     async approveCampaign(id: string): Promise<Campaign> {
