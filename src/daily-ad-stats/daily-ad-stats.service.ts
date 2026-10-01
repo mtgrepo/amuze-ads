@@ -232,7 +232,7 @@ export class DailyAdStatsService {
 
         let qb = this.advertiserAdStatsRepository
             .createQueryBuilder('stats')
-            .select('stats.startDate', 'date')
+            .select("TO_CHAR(stats.startDate, 'YYYY-MM-DD')", 'date')
             .addSelect('COALESCE(SUM(stats.impressions), 0)', 'impressions')
             .addSelect('COALESCE(SUM(stats.clicks), 0)', 'clicks')
             .addSelect('COALESCE(SUM(stats.engagements), 0)', 'engagements')
@@ -278,7 +278,11 @@ export class DailyAdStatsService {
         let qb = this.advertiserAdStatsRepository
             .createQueryBuilder('stats')
             .select('stats.adId', 'adId')
+            .addSelect('campaign.id', 'campaignId')
             .addSelect('campaign.name', 'campaignName')
+            .addSelect("TO_CHAR(campaign.endDate, 'YYYY-MM-DD')", 'endDate')
+            .addSelect('advertiser.name', 'advertiserName')
+            .addSelect('agency.name', 'agencyName')
             .addSelect('SUM(stats.impressions)', 'totalImpressions')
             .addSelect('SUM(stats.clicks)', 'totalClicks')
             .addSelect('SUM(stats.engagements)', 'totalEngagements')
@@ -286,6 +290,8 @@ export class DailyAdStatsService {
             .innerJoin('stats.ad', 'ad')
             .innerJoin('ad.adSet', 'adSet')
             .innerJoin('adSet.campaign', 'campaign')
+            .innerJoin('campaign.advertiser', 'advertiser')
+            .leftJoin('advertiser.agency', 'agency')
             .where('stats.startDate BETWEEN :startDate AND :endDate', {
                 startDate: getLocalDateString(startDate),
                 endDate: getLocalDateString(endDate),
@@ -297,17 +303,96 @@ export class DailyAdStatsService {
 
         const results = await qb
             .groupBy('stats.adId')
-            .addGroupBy('campaign.name')
+            .addGroupBy('campaign.id')
+            .addGroupBy('advertiser.name')
+            .addGroupBy('agency.name')
             .orderBy(`SUM(stats.${safeMetric})`, 'DESC')
             .limit(limit)
             .getRawMany();
 
         return results.map(r => ({
+            adId: r.adId as string,
+            campaignId: r.campaignId as string,
             campaignName: r.campaignName as string,
+            endDate: r.endDate as string,
+            advertiserName: r.advertiserName as string,
+            agencyName: (r.agencyName ?? null) as string | null,
             totalImpressions: Number(r.totalImpressions),
             totalClicks: Number(r.totalClicks),
             totalEngagements: Number(r.totalEngagements),
             totalWatches: Number(r.totalWatches),
+        }));
+    }
+
+    async getPlacementBreakdown(fromDate?: string, toDate?: string, advertiserIds?: string[]) {
+        if (advertiserIds && advertiserIds.length === 0) return [];
+        const endDate = toDate ? new Date(toDate) : new Date();
+        const startDate = fromDate ? new Date(fromDate) : new Date();
+        if (!fromDate) {
+            startDate.setDate(startDate.getDate() - 6);
+        }
+
+        let qb = this.advertiserAdStatsRepository
+            .createQueryBuilder('stats')
+            .innerJoin('stats.ad', 'ad')
+            .innerJoin('ad.adSet', 'adSet')
+            .innerJoin('adSet.campaign', 'campaign')
+            .select('ad.placementKey', 'placementKey')
+            .addSelect('COALESCE(SUM(stats.clicks), 0)', 'clicks')
+            .addSelect('COALESCE(SUM(stats.watches), 0)', 'watches')
+            .where('stats.startDate BETWEEN :startDate AND :endDate', {
+                startDate: getLocalDateString(startDate),
+                endDate: getLocalDateString(endDate),
+            });
+
+        if (advertiserIds) {
+            qb = qb.andWhere('campaign.advertiserId IN (:...advertiserIds)', { advertiserIds });
+        }
+
+        const results = await qb
+            .groupBy('ad.placementKey')
+            .orderBy('SUM(stats.clicks)', 'DESC')
+            .addOrderBy('SUM(stats.watches)', 'DESC')
+            .getRawMany();
+
+        return results.map(r => ({
+            placementKey: r.placementKey as string,
+            clicks: Number(r.clicks),
+            watches: Number(r.watches),
+        }));
+    }
+
+    /** Delivery per advertiser in the range, e.g. one row per agency client. */
+    async getAdvertiserBreakdown(fromDate?: string, toDate?: string, advertiserIds?: string[]) {
+        if (advertiserIds && advertiserIds.length === 0) return [];
+        const endDate = toDate ? new Date(toDate) : new Date();
+        const startDate = fromDate ? new Date(fromDate) : new Date();
+        if (!fromDate) {
+            startDate.setDate(startDate.getDate() - 6);
+        }
+
+        let qb = this.advertiserAdStatsRepository
+            .createQueryBuilder('stats')
+            .innerJoin('stats.ad', 'ad')
+            .innerJoin('ad.adSet', 'adSet')
+            .innerJoin('adSet.campaign', 'campaign')
+            .select('campaign.advertiserId', 'advertiserId')
+            .addSelect('COALESCE(SUM(stats.clicks), 0)', 'clicks')
+            .addSelect('COALESCE(SUM(stats.watches), 0)', 'watches')
+            .where('stats.startDate BETWEEN :startDate AND :endDate', {
+                startDate: getLocalDateString(startDate),
+                endDate: getLocalDateString(endDate),
+            });
+
+        if (advertiserIds) {
+            qb = qb.andWhere('campaign.advertiserId IN (:...advertiserIds)', { advertiserIds });
+        }
+
+        const results = await qb.groupBy('campaign.advertiserId').getRawMany();
+        return results.map(r => ({
+            advertiserId: r.advertiserId as string,
+            clicks: Number(r.clicks),
+            watches: Number(r.watches),
         }));
     }
 

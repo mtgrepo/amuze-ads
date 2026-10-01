@@ -114,4 +114,34 @@ export class DailyAdStatsController {
             message: 'Top ads retrieved successfully',
         };
     }
+
+    @Get('admin/placements')
+    async getPlacementBreakdown(
+        @CurrentUser() user: CurrentUserPayload,
+        @Query('fromDate') fromDate?: string,
+        @Query('toDate') toDate?: string,
+        @Query('advertiserId') advertiserId?: string,
+    ) {
+        const scope = await this.advertiserService.resolveListScope(user, advertiserId);
+        const result = await this.dailyAdStatsService.getPlacementBreakdown(fromDate, toDate, scope);
+        return {
+            data: result,
+            message: 'Placement breakdown retrieved successfully',
+        };
+    }
+
+    @Get('admin/by-advertiser')
+    async getAdvertiserBreakdown(
+        @CurrentUser() user: CurrentUserPayload,
+        @Query('fromDate') fromDate?: string,
+        @Query('toDate') toDate?: string,
+        @Query('advertiserId') advertiserId?: string,
+    ) {
+        const scope = await this.advertiserService.resolveListScope(user, advertiserId);
+        const result = await this.dailyAdStatsService.getAdvertiserBreakdown(fromDate, toDate, scope);
+        return {
+            data: result,
+            message: 'Advertiser breakdown retrieved successfully',
+        };
+    }
 }
