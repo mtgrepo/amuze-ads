@@ -338,8 +338,10 @@ export class DailyAdStatsService {
             .innerJoin('ad.adSet', 'adSet')
             .innerJoin('adSet.campaign', 'campaign')
             .select('ad.placementKey', 'placementKey')
+            .addSelect('COALESCE(SUM(stats.impressions), 0)', 'impressions')
             .addSelect('COALESCE(SUM(stats.clicks), 0)', 'clicks')
             .addSelect('COALESCE(SUM(stats.watches), 0)', 'watches')
+            .addSelect('COALESCE(SUM(stats.engagements), 0)', 'engagements')
             .where('stats.startDate BETWEEN :startDate AND :endDate', {
                 startDate: getLocalDateString(startDate),
                 endDate: getLocalDateString(endDate),
@@ -357,8 +359,10 @@ export class DailyAdStatsService {
 
         return results.map(r => ({
             placementKey: r.placementKey as string,
+            impressions: Number(r.impressions),
             clicks: Number(r.clicks),
             watches: Number(r.watches),
+            engagements: Number(r.engagements),
         }));
     }
 
@@ -377,8 +381,10 @@ export class DailyAdStatsService {
             .innerJoin('ad.adSet', 'adSet')
             .innerJoin('adSet.campaign', 'campaign')
             .select('campaign.advertiserId', 'advertiserId')
+            .addSelect('COALESCE(SUM(stats.impressions), 0)', 'impressions')
             .addSelect('COALESCE(SUM(stats.clicks), 0)', 'clicks')
             .addSelect('COALESCE(SUM(stats.watches), 0)', 'watches')
+            .addSelect('COALESCE(SUM(stats.engagements), 0)', 'engagements')
             .where('stats.startDate BETWEEN :startDate AND :endDate', {
                 startDate: getLocalDateString(startDate),
                 endDate: getLocalDateString(endDate),
@@ -391,8 +397,10 @@ export class DailyAdStatsService {
         const results = await qb.groupBy('campaign.advertiserId').getRawMany();
         return results.map(r => ({
             advertiserId: r.advertiserId as string,
+            impressions: Number(r.impressions),
             clicks: Number(r.clicks),
             watches: Number(r.watches),
+            engagements: Number(r.engagements),
         }));
     }
 
