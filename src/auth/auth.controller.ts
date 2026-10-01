@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Headers, Post, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDTO } from './dto/login.dto';
 
@@ -6,9 +6,14 @@ import { LoginDTO } from './dto/login.dto';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Post('admin/login')
-  async login(@Body() loginDto: LoginDTO) {
-    return this.authService.login(loginDto.email, loginDto.password);
+  // Not behind JwtAuthGuard: on an admin's first visit their local row doesn't exist yet.
+  @Post('admin/sso')
+  async adminSso(@Headers('authorization') authorization?: string) {
+    const token = authorization?.startsWith('Bearer ') ? authorization.slice(7) : undefined;
+    if (!token) {
+      throw new UnauthorizedException('Missing AMUZE token');
+    }
+    return this.authService.adminSso(token);
   }
 
   @Post('advertiser/login')

@@ -7,6 +7,8 @@ import { AdvertiserModule } from 'src/advertisers/advertiser.module';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
+import { AmuzeTokenService } from './amuze-token.service';
+import { AmuzeJwtStrategy } from './amuze-jwt.strategy';
 
 @Module({
   imports: [
@@ -24,7 +26,7 @@ import { JwtStrategy } from './jwt.strategy';
       }),
     }),
   ],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, AmuzeTokenService, AmuzeJwtStrategy],
   controllers: [AuthController],
 })
 export class AuthModule {}

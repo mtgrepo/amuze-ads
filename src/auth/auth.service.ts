@@ -1,9 +1,9 @@
 import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { NotFoundError } from 'rxjs';
 import { AdminUserService } from 'src/admin-users/admin-user.service';
 import { AdvertiserService } from 'src/advertisers/advertiser.service';
 import { comparePassword } from 'src/common/utils/password.utils';
+import { AmuzeTokenService } from './amuze-token.service';
 
 @Injectable()
 export class AuthService {
@@ -11,29 +11,26 @@ export class AuthService {
     private readonly adminUserService: AdminUserService,
     private readonly advertiserUserService: AdvertiserService,
     private readonly jwtService: JwtService,
+    private readonly amuzeTokenService: AmuzeTokenService,
   ) {}
 
-  async login(email: string, password: string) {
-    const user = await this.adminUserService.findAdminUserByEmail(email);
-    if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+  /**
+   * Called once when an admin arrives from the AMUZE admin portal: verify the AMUZE token,
+   * then create/update the local admin. The portal keeps using the AMUZE token for API calls.
+   */
+  async adminSso(token: string) {
+    const claims = this.amuzeTokenService.toAdminClaims(this.amuzeTokenService.verify(token));
+    const admin = await this.adminUserService.upsertFromAmuze(claims);
+    if (!admin.isActive) {
+      throw new UnauthorizedException('Your Ad portal access is disabled');
     }
-
-    const isPasswordValid = await comparePassword(password, user.password);
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    const payload = { sub: user.id, email: user.email, role: 'admin' };
-    const accessToken = this.jwtService.sign(payload);
-
     return {
-      accessToken,
       user: {
-        id: user.id,
-        role: "Admin",
-        name: user.name,
-        email: user.email,
+        id: admin.id,
+        role: 'Admin',
+        name: admin.name,
+        email: admin.email,
+        phone: admin.phone,
       },
     };
   }

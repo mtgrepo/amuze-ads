@@ -2,7 +2,6 @@ import { Injectable, NotAcceptableException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { AdminUser } from "./entities/admin-user.entity";
 import { Repository } from "typeorm";
-import { hashPassword } from "src/common/utils/password.utils";
 
 @Injectable()
 export class AdminUserService {
@@ -10,18 +9,6 @@ export class AdminUserService {
         @InjectRepository(AdminUser)
         private adminUserRepository: Repository<AdminUser>,
     ) {}
-
-    async createAdminUser(adminUserData: Partial<AdminUser>): Promise<AdminUser> {
-        try {
-            if (adminUserData.password) {
-                adminUserData.password = await hashPassword(adminUserData.password);
-            }
-            const adminUser = this.adminUserRepository.create(adminUserData);
-            return await this.adminUserRepository.save(adminUser);
-        } catch (error) {
-            throw new NotAcceptableException(error.message);
-        }
-    }
 
     async findAdminUserList(): Promise<AdminUser[]> {
         try {
@@ -43,20 +30,18 @@ export class AdminUserService {
         }
     }
 
-    async updateAdminUser(id: string, updateData: Partial<AdminUser>): Promise<AdminUser> {
-        try {
-            const adminUser = await this.findAdminUserById(id);
-            if (!adminUser) {
-                throw new NotAcceptableException("Admin user not found");
-            }
-            if (updateData.password) {
-                updateData.password = await hashPassword(updateData.password);
-            }
-            Object.assign(adminUser, updateData);
-            return await this.adminUserRepository.save(adminUser);
-        } catch (error) {
-            throw new NotAcceptableException(error.message);
-        }
+    async findByAmuzeUserId(amuzeUserId: string): Promise<AdminUser | null> {
+        return this.adminUserRepository.findOneBy({ amuzeUserId });
+    }
+
+    /** First visit from AMUZE creates the admin; later visits refresh name, phone and last login. isActive is never changed here. */
+    async upsertFromAmuze(claims: { amuzeUserId: string; name: string; phone: string | null }): Promise<AdminUser> {
+        const existing = await this.findByAmuzeUserId(claims.amuzeUserId);
+        const admin = existing ?? this.adminUserRepository.create({ amuzeUserId: claims.amuzeUserId });
+        admin.name = claims.name;
+        admin.phone = claims.phone;
+        admin.lastLogin = new Date();
+        return this.adminUserRepository.save(admin);
     }
 
     async findAdminUserByEmail(email: string): Promise<AdminUser | null> {

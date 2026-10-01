@@ -12,15 +12,6 @@ import { Roles } from "src/auth/roles.decorator";
 export class AdminUserController {
     constructor(private readonly adminUserService: AdminUserService) {}
 
-    @Post()
-    async create(@Body() adminUserData: CreateAdminUserDTO) {
-        const adminUser = await this.adminUserService.createAdminUser(adminUserData);
-        return {
-            data: adminUser,
-            message: 'Admin user created successfully',
-        }
-    }
-
     @Get()
     async findAll() {
         const adminUsers = await this.adminUserService.findAdminUserList();
@@ -36,15 +27,6 @@ export class AdminUserController {
         return {
             data: adminUser,
             message: 'Admin user retrieved successfully',
-        }
-    }
-
-    @Patch(':id/update')
-    async update(@Param('id') id: string, @Body()updateData: UpdateAdminUserDTO) {
-        const adminUser = await this.adminUserService.updateAdminUser(id, updateData);
-        return {
-            data: adminUser,
-            message: 'Admin user updated successfully',
         }
     }
 
