@@ -13,6 +13,9 @@ function getLocalDateString(date: Date): string {
     return `${year}-${month}-${day}`;
 }
 
+// Upper bound for the ads table on the performance page.
+const MAX_TOP_ADS = 50;
+
 const EVENT_COLUMN: Record<string, 'impressions' | 'clicks' | 'watches' | 'engagements'> = {
     view: 'impressions',
     click: 'clicks',
@@ -283,6 +286,8 @@ export class DailyAdStatsService {
             .addSelect("TO_CHAR(campaign.endDate, 'YYYY-MM-DD')", 'endDate')
             .addSelect('advertiser.name', 'advertiserName')
             .addSelect('agency.name', 'agencyName')
+            .addSelect('ad.placementKey', 'placementKey')
+            .addSelect('campaign.status', 'status')
             .addSelect('SUM(stats.impressions)', 'totalImpressions')
             .addSelect('SUM(stats.clicks)', 'totalClicks')
             .addSelect('SUM(stats.engagements)', 'totalEngagements')
@@ -306,8 +311,9 @@ export class DailyAdStatsService {
             .addGroupBy('campaign.id')
             .addGroupBy('advertiser.name')
             .addGroupBy('agency.name')
+            .addGroupBy('ad.placementKey')
             .orderBy(`SUM(stats.${safeMetric})`, 'DESC')
-            .limit(limit)
+            .limit(Math.min(Math.max(limit, 1), MAX_TOP_ADS))
             .getRawMany();
 
         return results.map(r => ({
@@ -317,6 +323,8 @@ export class DailyAdStatsService {
             endDate: r.endDate as string,
             advertiserName: r.advertiserName as string,
             agencyName: (r.agencyName ?? null) as string | null,
+            placementKey: r.placementKey as string,
+            status: r.status as string,
             totalImpressions: Number(r.totalImpressions),
             totalClicks: Number(r.totalClicks),
             totalEngagements: Number(r.totalEngagements),
