@@ -28,7 +28,7 @@ export class AdvertiserService {
                 status: advertiserData.status,
                 verified: advertiserData.verified,
                 password: advertiserData.password ? await hashPassword(advertiserData.password) : advertiserData.password,
-                type: 'advertiser',
+                type: advertiserData.type,
                 agencyId: null,
             });
             return await this.advertiserRepository.save(advertiser);

@@ -1,6 +1,10 @@
-import { IsBoolean, IsEmail, IsNotEmpty, IsString } from "class-validator";
+import { IsBoolean, IsEmail, IsIn, IsNotEmpty, IsString } from "class-validator";
+import { ADVERTISER_TYPES } from "../advertiser-type";
 
 export class CreateAdvertiserDTO {
+
+    @IsIn(ADVERTISER_TYPES)
+    type: "advertiser" | "agency";
     
     @IsNotEmpty()
     @IsString()
