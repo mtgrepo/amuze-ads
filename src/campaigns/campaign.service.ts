@@ -4,8 +4,6 @@ import { Campaign } from "./entities/campaign.entity";
 import { DataSource, EntityManager, In, Repository } from "typeorm";
 import { NotificationService } from "../notifications/notification.service";
 import { Cron, CronExpression } from "@nestjs/schedule";
-import { TransactionService } from "src/transactions/transaction.service";
-import { Transactions } from "src/transactions/entities/transaction.entity";
 import { MinioService } from "src/minio/minio.service";
 import { AdCreative } from "src/ad-creatives/entities/ad-creative.entity";
 import { AdSet } from "src/ad-sets/entities/ad-sets.entity";
@@ -78,7 +76,6 @@ export class CampaignService {
         @InjectRepository(Ad)
         private adRepository: Repository<Ad>,
         private readonly notificationService: NotificationService,
-        private readonly transactionService: TransactionService,
         private readonly minioService: MinioService,
         private readonly advertiserService: AdvertiserService,
         private readonly pointsService: PointsService,
@@ -99,34 +96,26 @@ export class CampaignService {
         }
     }
 
-    async findCampaignList(advertiserIds?: string[]): Promise<(Campaign & { transaction: Transactions | null })[]> {
+    async findCampaignList(advertiserIds?: string[]): Promise<Campaign[]> {
         try {
             if (advertiserIds && advertiserIds.length === 0) return [];
-            const campaigns = await this.campaignRepository.find({
+            return await this.campaignRepository.find({
                 where: advertiserIds ? { advertiserId: In(advertiserIds) } : {},
                 relations: { advertiser: true },
                 select: { advertiser: { id: true, name: true } },
             });
-            if (campaigns.length === 0) return [];
-            const campaignIds = campaigns.map(c => c.id);
-            const transactions = await this.transactionService.findByReferenceIds(campaignIds, 'campaign');
-            const transactionMap = new Map(transactions.map(t => [t.referenceId, t]));
-            return campaigns.map(campaign =>
-                Object.assign(campaign, { transaction: transactionMap.get(campaign.id) ?? null })
-            );
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
     }
 
-    async findCampaignById(id: string): Promise<Campaign & { transaction: Transactions | null }> {
+    async findCampaignById(id: string): Promise<Campaign> {
         try {
             const campaign = await this.campaignRepository.findOneBy({ id });
             if(!campaign) {
                 throw new Error ("Campaign not found");
             }
-            const transaction = await this.transactionService.findByReferenceId(id, 'campaign');
-            return Object.assign(campaign, { transaction });
+            return campaign;
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
