@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString } from "class-validator";
+import { IsNotEmpty, IsOptional, IsString } from "class-validator";
 
 export class CreateAdvertiserProfileDto {
     @IsNotEmpty() 
@@ -21,9 +21,9 @@ export class CreateAdvertiserProfileDto {
     @IsString()
     dica_number: string;
 
-    @IsNotEmpty()
+    @IsOptional()
     @IsString()
-    website: string;
+    website?: string;
 
     @IsNotEmpty()
     @IsString()

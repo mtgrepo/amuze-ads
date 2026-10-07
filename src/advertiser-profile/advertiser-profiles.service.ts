@@ -24,7 +24,7 @@ export class AdvertiserProfilesService {
     private advertiserProfileRepository: Repository<AdvertiserProfile>,
   ) {}
 
-  async createAdvertiserProfile(createAdvertiserProfileDto: CreateAdvertiserProfileDto, photoUrl: string): Promise<AdvertiserProfile> {
+  async createAdvertiserProfile(createAdvertiserProfileDto: CreateAdvertiserProfileDto, photoUrl: string | null): Promise<AdvertiserProfile> {
     try {
         const advertiserProfile = this.advertiserProfileRepository.create({
           ...pickProfileFields(createAdvertiserProfileDto),

@@ -29,13 +29,14 @@ export class AdvertiserProfilesController {
   @UseInterceptors(FileInterceptor('photo', { storage: memoryStorage() }))
   async create(
     @Body() createAdvertiserProfileDto: CreateAdvertiserProfileDto,
-    @UploadedFile() file: Express.Multer.File,
     @CurrentUser() user: CurrentUserPayload,
+    @UploadedFile() file?: Express.Multer.File,
   ) {
     await this.assertCanManage(user, createAdvertiserProfileDto.advertiser_id);
 
+    // The logo is optional.
     const folder = `advertiser-profiles/${createAdvertiserProfileDto.business_name}`;
-    const fileName = await this.minioService.upload(file, folder);
+    const fileName = file ? await this.minioService.upload(file, folder) : null;
 
     const advertiserProfile = await this.advertiserProfilesService.createAdvertiserProfile(
       createAdvertiserProfileDto,

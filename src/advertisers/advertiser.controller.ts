@@ -18,7 +18,8 @@ export class AdvertiserController {
 
     @Post()
     async create(@Body() advertiserData: CreateAdvertiserDTO) {
-        const advertiser = await this.advertiserService.createAdvertiser(advertiserData);
+        // Public endpoint: callers can't verify their own account.
+        const advertiser = await this.advertiserService.createAdvertiser({ ...advertiserData, status: 'active', verified: false });
         return {
             data: advertiser,
             message: 'Advertiser created successfully',

@@ -25,11 +25,11 @@ export class AdvertiserProfile {
     @Column({ type: 'varchar', length: 255 })
     dica_number: string
 
-    @Column({ type: 'varchar', length: 500 })
-    photo: string
+    @Column({ type: 'varchar', length: 500, nullable: true })
+    photo: string | null
 
-    @Column({ type: 'varchar', length: 500 })
-    website: string
+    @Column({ type: 'varchar', length: 500, nullable: true })
+    website: string | null
 
     @Column({ type: 'text' })
     address: string

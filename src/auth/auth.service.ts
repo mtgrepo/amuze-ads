@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, HttpException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { AdminUserService } from 'src/admin-users/admin-user.service';
 import { AdvertiserService } from 'src/advertisers/advertiser.service';
@@ -48,13 +48,18 @@ export class AuthService {
         throw new NotFoundException('Invalid credentials');
       }
 
-      if(!user?.verified || user.status === 'inactive'){
-        throw new NotFoundException('User Not Found!');
-      }
-
       const isPasswordValid = await comparePassword(password, user.password);
       if (!isPasswordValid) {
         throw new NotFoundException('Invalid credentials');
+      }
+
+      // Checked only after the password, so account status isn't revealed to someone guessing emails.
+      // 403 rather than 401: the customer portal treats any 401 as an expired session and reloads.
+      if (user.status === 'inactive') {
+        throw new ForbiddenException('Your account has been disabled. Please contact Amuze.');
+      }
+      if (!user.verified) {
+        throw new ForbiddenException('Your account is not verified yet. Amuze will review it and let you know.');
       }
 
       const role = user.type === 'agency' ? 'agency' : 'advertiser';
@@ -72,6 +77,9 @@ export class AuthService {
         },
       };
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new NotFoundException(error.message)
     }
   }

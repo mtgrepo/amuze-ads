@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotAcceptableException } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
+import { DataSource, Repository } from "typeorm";
 import { Advertiser } from "./entities/advertiser.entity";
 import { hashPassword } from "src/common/utils/password.utils";
 import { NotificationService } from "src/notifications/notification.service";
@@ -8,14 +8,69 @@ import type { CurrentUserPayload } from "src/auth/current-user.decorator";
 import { CreateAccountDTO } from "./dto/create-account.dto";
 import { CreateClientDTO } from "./dto/create-client.dto";
 import { PointLedger } from "src/points/entities/point-ledger.entity";
+import { AdvertiserProfile } from "src/advertiser-profile/entities/advertiser-profile.entity";
+import { MinioService } from "src/minio/minio.service";
+import { RegisterAdvertiserDTO } from "./dto/register-advertiser.dto";
+
+const DEFAULT_COUNTRY = 'Myanmar';
+const DEFAULT_TIMEZONE = 'Asia/Yangon';
 
 @Injectable()
 export class AdvertiserService {
     constructor(
         @InjectRepository(Advertiser)
         private advertiserRepository: Repository<Advertiser>,
-        private readonly notificationService: NotificationService
+        private readonly notificationService: NotificationService,
+        private readonly minioService: MinioService,
+        @InjectDataSource()
+        private readonly dataSource: DataSource,
     ) {}
+
+    /**
+     * Public sign-up: creates the account and its business profile together, so neither exists without the other.
+     * New accounts are always unverified; an admin verifies them before they can log in.
+     */
+    async register(dto: RegisterAdvertiserDTO, logo?: Express.Multer.File): Promise<{ id: string; name: string; email: string | null; type: string }> {
+        const email = dto.email.trim().toLowerCase();
+        if (await this.advertiserRepository.exists({ where: { email } })) {
+            throw new BadRequestException('An account with this email already exists');
+        }
+
+        // Upload before the transaction so a failed upload saves nothing; remove it again if the save fails.
+        const photo = logo ? await this.minioService.upload(logo, `advertiser-profiles/${dto.business_name}`) : null;
+        try {
+            return await this.dataSource.transaction(async (manager) => {
+                const advertiser = await manager.save(manager.create(Advertiser, {
+                    type: dto.type,
+                    name: dto.name.trim(),
+                    email,
+                    phone: dto.phone.trim(),
+                    password: await hashPassword(dto.password),
+                    status: 'active',
+                    verified: false,
+                    agencyId: null,
+                }));
+                await manager.save(manager.create(AdvertiserProfile, {
+                    advertiser_id: advertiser.id,
+                    business_name: dto.business_name.trim(),
+                    business_no: dto.business_no.trim(),
+                    business_type: dto.business_type.trim(),
+                    dica_number: dto.dica_number.trim(),
+                    address: dto.address.trim(),
+                    website: dto.website?.trim() || null,
+                    country: dto.country || DEFAULT_COUNTRY,
+                    timezone: dto.timezone || DEFAULT_TIMEZONE,
+                    photo,
+                }));
+                return { id: advertiser.id, name: advertiser.name, email: advertiser.email, type: advertiser.type };
+            });
+        } catch (error) {
+            if (photo) {
+                await this.minioService.delete(photo).catch(() => undefined);
+            }
+            throw new BadRequestException(error.message);
+        }
+    }
 
     async createAdvertiser(advertiserData: Partial<Advertiser>): Promise<Advertiser> {
         try {
