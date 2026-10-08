@@ -17,9 +17,10 @@ export class CreateAdvertiserProfileDto {
     @IsString()
     business_type: string;
 
-    @IsNotEmpty()
+    // Required for agencies only; AdvertiserProfilesService checks the owner's account type.
+    @IsOptional()
     @IsString()
-    dica_number: string;
+    dica_number?: string;
 
     @IsOptional()
     @IsString()

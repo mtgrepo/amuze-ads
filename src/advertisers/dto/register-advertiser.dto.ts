@@ -1,4 +1,4 @@
-import { IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
+import { IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength, ValidateIf } from "class-validator";
 import { ADVERTISER_TYPES } from "../advertiser-type";
 
 /** Public self-registration: the login account plus its business profile, sent as one multipart form. */
@@ -36,9 +36,11 @@ export class RegisterAdvertiserDTO {
     @IsString()
     business_type: string;
 
-    @IsNotEmpty()
-    @IsString()
-    dica_number: string;
+    // Agencies are registered companies; an individual advertiser may not have a DICA number.
+    @ValidateIf((dto: RegisterAdvertiserDTO) => dto.type === 'agency' || !!dto.dica_number)
+    @IsNotEmpty({ message: 'DICA number is required for agencies' })
+    @IsString({ message: 'DICA number is required for agencies' })
+    dica_number?: string;
 
     @IsNotEmpty()
     @IsString()

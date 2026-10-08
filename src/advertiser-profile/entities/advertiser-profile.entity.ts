@@ -22,8 +22,9 @@ export class AdvertiserProfile {
     @Column({ type: 'varchar', length: 500 })
     business_type: string
 
-    @Column({ type: 'varchar', length: 255 })
-    dica_number: string
+    // Required for agencies only; enforced in the services, since it depends on the account type.
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    dica_number: string | null
 
     @Column({ type: 'varchar', length: 500, nullable: true })
     photo: string | null

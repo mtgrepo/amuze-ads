@@ -55,7 +55,7 @@ export class AdvertiserService {
                     business_name: dto.business_name.trim(),
                     business_no: dto.business_no.trim(),
                     business_type: dto.business_type.trim(),
-                    dica_number: dto.dica_number.trim(),
+                    dica_number: dto.dica_number?.trim() || null,
                     address: dto.address.trim(),
                     website: dto.website?.trim() || null,
                     country: dto.country || DEFAULT_COUNTRY,
