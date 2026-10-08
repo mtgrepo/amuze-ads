@@ -1,8 +1,8 @@
 import { IsIn, IsNotEmpty, IsNumberString, IsOptional, IsString } from "class-validator";
+import { AD_TYPES, PLACEMENT_KEYS } from "src/ads/ad-formats";
 
 const ASSET_TYPES = ['image', 'video'];
 const GENDERS = ['male', 'female', 'all'];
-const AD_TYPES = ['banner', 'interstitial', 'reward_video', 'native', 'splash'];
 const BUDGET_PLANS = ['daily', 'total'];
 
 export class CreateFullCampaignDto {
@@ -63,6 +63,6 @@ export class CreateFullCampaignDto {
     adType: string
 
     @IsNotEmpty()
-    @IsString()
+    @IsIn(PLACEMENT_KEYS)
     placementKey: string
 }

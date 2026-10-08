@@ -10,6 +10,7 @@ import { AdSet } from "src/ad-sets/entities/ad-sets.entity";
 import { Ad } from "src/ads/entities/ad.entity";
 import { AdvertiserService } from "src/advertisers/advertiser.service";
 import { PointsService } from "src/points/points.service";
+import { isAllowedFormat } from "src/ads/ad-formats";
 
 // Statuses an ad can only be in once it's fully paid.
 const PAID_STATUSES = ['pending', 'active', 'paused'];
@@ -357,6 +358,10 @@ export class CampaignService {
     }
 
     async createFullCampaign(input: CreateFullCampaignInput, file: Express.Multer.File) {
+        // Before the upload: the combination must exist in the format catalogue (e.g. reward video is video-only).
+        if (!isAllowedFormat(input.adType, input.placementKey, input.assetType)) {
+            throw new BadRequestException(`${input.adType} ads can't use ${input.assetType} in ${input.placementKey}`);
+        }
         try {
             // Validate and price the budget before uploading, so a rejected ad leaves no orphan asset.
             const budget = {

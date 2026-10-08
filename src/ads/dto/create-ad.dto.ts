@@ -1,7 +1,6 @@
 import { IsIn, IsNotEmpty, IsString } from "class-validator";
+import { AD_TYPES, PLACEMENT_KEYS } from "../ad-formats";
 
-const AD_TYPES = ['banner', 'interstitial', 'reward_video', 'native', 'splash'];
-const PLACEMENT_KEYS = ['home_page', 'comic', 'novel', 'story_tellings', 'magazine'];
 
 export class CreateAdDto {
     @IsNotEmpty()
