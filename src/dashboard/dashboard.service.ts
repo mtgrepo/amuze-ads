@@ -78,8 +78,31 @@ export class DashboardService {
         };
     }
 
-    /** Points movement between two dates (YYYY-MM-DD, inclusive; default: last 7 days). 1 point = 1 MMK. */
-    async getPointsSummary(fromDate?: string, toDate?: string) {
+    /** Ledger sums per entry type, optionally limited to [from, to). Spends are negative, everything else positive. */
+    private async ledgerTotals(from?: Date, to?: Date): Promise<Record<string, number>> {
+        let qb = this.pointLedgerRepository
+            .createQueryBuilder('ledger')
+            .select('ledger.type', 'type')
+            .addSelect('COALESCE(SUM(ledger.amount), 0)', 'total');
+        if (from && to) {
+            qb = qb.where('ledger.createdAt >= :from AND ledger.createdAt < :to', { from, to });
+        }
+        const rows = await qb.groupBy('ledger.type').getRawMany();
+        return Object.fromEntries(rows.map((r) => [r.type, Number(r.total)]));
+    }
+
+    /** Money customers paid for points: online purchases plus top-ups paid to an admin. 1 point = 1 MMK. */
+    private static received(totals: Record<string, number>): number {
+        return (totals.purchase ?? 0) + (totals.admin_paid ?? 0);
+    }
+
+    /** What ads earned: points spent on ads minus refunds for ads that never ran. */
+    private static earned(totals: Record<string, number>): number {
+        return Math.abs(totals.spend ?? 0) - (totals.refund ?? 0);
+    }
+
+    /** [from, to) for YYYY-MM-DD dates, inclusive of toDate. Defaults to the last 7 days. */
+    private static dayRange(fromDate?: string, toDate?: string): { from: Date; to: Date } {
         const to = toDate ? new Date(`${toDate}T00:00:00`) : new Date();
         const from = fromDate ? new Date(`${fromDate}T00:00:00`) : new Date(to);
         if (isNaN(from.getTime()) || isNaN(to.getTime())) {
@@ -92,25 +115,54 @@ export class DashboardService {
         // Exclusive upper bound: the start of the day after toDate.
         to.setHours(0, 0, 0, 0);
         to.setDate(to.getDate() + 1);
+        return { from, to };
+    }
 
-        const rows = await this.pointLedgerRepository
-            .createQueryBuilder('ledger')
-            .select('ledger.type', 'type')
-            .addSelect('COALESCE(SUM(ledger.amount), 0)', 'total')
-            .where('ledger.createdAt >= :from AND ledger.createdAt < :to', { from, to })
-            .groupBy('ledger.type')
-            .getRawMany();
-        const totals: Record<string, number> = Object.fromEntries(rows.map((r) => [r.type, Number(r.total)]));
+    /** Points movement between two dates (YYYY-MM-DD, inclusive; default: last 7 days). 1 point = 1 MMK. */
+    async getPointsSummary(fromDate?: string, toDate?: string) {
+        const { from, to } = DashboardService.dayRange(fromDate, toDate);
+        const totals = await this.ledgerTotals(from, to);
 
         return {
             fromDate: localDateString(from),
             toDate: toDate ?? localDateString(new Date()),
             // Paid by the customer (online or to an admin) vs. given free.
-            purchased: (totals.purchase ?? 0) + (totals.admin_paid ?? 0),
+            purchased: DashboardService.received(totals),
             bonus: totals.admin_bonus ?? 0,
             // Spends are stored negative.
             spent: Math.abs(totals.spend ?? 0),
             refunded: totals.refund ?? 0,
+        };
+    }
+
+    /**
+     * Headline numbers for the admin dashboard. Campaign counts are current; revenue is all-time
+     * plus the selected range, both as earned from ads and as money received.
+     */
+    async getSummary(fromDate?: string, toDate?: string) {
+        const statusRows = await this.campaignRepository
+            .createQueryBuilder('campaign')
+            .select('campaign.status', 'status')
+            .addSelect('COUNT(*)', 'count')
+            .groupBy('campaign.status')
+            .getRawMany();
+        const byStatus: Record<string, number> = Object.fromEntries(statusRows.map((r) => [r.status, Number(r.count)]));
+        const total = Object.values(byStatus).reduce((sum, n) => sum + n, 0);
+
+        const { from, to } = DashboardService.dayRange(fromDate, toDate);
+        const [allTime, inRange] = await Promise.all([this.ledgerTotals(), this.ledgerTotals(from, to)]);
+
+        return {
+            campaigns: {
+                total,
+                drafts: byStatus.draft ?? 0,
+                pending: byStatus.pending ?? 0,
+                active: byStatus.active ?? 0,
+            },
+            revenue: {
+                earned: { allTime: DashboardService.earned(allTime), inRange: DashboardService.earned(inRange) },
+                received: { allTime: DashboardService.received(allTime), inRange: DashboardService.received(inRange) },
+            },
         };
     }
 }

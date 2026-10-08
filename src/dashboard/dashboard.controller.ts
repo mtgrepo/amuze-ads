@@ -18,6 +18,14 @@ export class DashboardController {
         };
     }
 
+    @Get('summary')
+    async getSummary(@Query('fromDate') fromDate?: string, @Query('toDate') toDate?: string) {
+        return {
+            data: await this.dashboardService.getSummary(fromDate, toDate),
+            message: 'Dashboard summary retrieved successfully',
+        };
+    }
+
     @Get('points')
     async getPointsSummary(@Query('fromDate') fromDate?: string, @Query('toDate') toDate?: string) {
         return {
