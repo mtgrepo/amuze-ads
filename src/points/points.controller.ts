@@ -35,6 +35,15 @@ export class PointsController {
     }
 
     @Roles('admin')
+    @Get('ledger')
+    async ledger() {
+        return {
+            data: await this.pointsService.getLedger(),
+            message: 'Points ledger retrieved successfully',
+        };
+    }
+
+    @Roles('admin')
     @Get('accounts/:id')
     async accountWallet(@Param('id') id: string) {
         const wallet = await this.pointsService.getWallet(id);

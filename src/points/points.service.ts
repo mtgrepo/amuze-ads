@@ -136,6 +136,24 @@ export class PointsService {
         return wallet;
     }
 
+    /**
+     * Every wallet's history for the admin points page, newest first, with the wallet owner on each entry,
+     * plus the points customers hold right now (agency clients have no wallet of their own).
+     */
+    async getLedger(): Promise<{ totalBalance: number; entries: PointLedger[] }> {
+        const entries = await this.ledgerRepository.find({
+            relations: { advertiser: true },
+            select: { advertiser: { id: true, name: true, type: true } },
+            order: { createdAt: 'DESC' },
+        });
+        const row = await this.advertiserRepository
+            .createQueryBuilder('advertiser')
+            .select('COALESCE(SUM(advertiser.pointsBalance), 0)', 'total')
+            .where('advertiser.agencyId IS NULL')
+            .getRawOne();
+        return { totalBalance: Number(row?.total ?? 0), entries };
+    }
+
     async getWallet(walletId: string): Promise<{ balance: number; history: PointLedger[] }> {
         const wallet = await this.assertWalletOwner(walletId);
         const history = await this.ledgerRepository.find({
