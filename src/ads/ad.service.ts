@@ -5,7 +5,6 @@ import { Repository } from "typeorm";
 import { AdSet } from "src/ad-sets/entities/ad-sets.entity";
 import { UpdateAdSetsDTO } from "src/ad-sets/dto/update-ad-sets.dto";
 import { CreateAdDto } from "./dto/create-ad.dto";
-import { NotificationService } from "../notifications/notification.service";
 import { CampaignService } from "src/campaigns/campaign.service";
 
 @Injectable()
@@ -15,7 +14,6 @@ export class AdService {
         private adRepository: Repository<Ad>,
         @InjectRepository(AdSet)
         private adSetRepository: Repository<AdSet>,
-        private readonly notificationService: NotificationService,
         private readonly campaignService: CampaignService
     ) {}
 
@@ -93,7 +91,9 @@ export class AdService {
         if (ad.adSet?.campaign?.status === 'draft') {
             throw new NotAcceptableException('This ad has not been paid for yet');
         }
-        return this.updateStatus(id, 'active');
+        // One transaction for the campaign and its ad, so they can't end up with different statuses.
+        await this.campaignService.approveCampaign(ad.adSet.campaignId);
+        return this.findAdById(id);
     }
 
     async rejectAd(id: string): Promise<Ad> {
@@ -104,22 +104,16 @@ export class AdService {
         if (ad.adSet?.campaign?.status === 'draft') {
             throw new NotAcceptableException('This ad has not been paid for yet');
         }
-        return this.updateStatus(id, 'rejected');
+        await this.campaignService.rejectCampaign(ad.adSet.campaignId);
+        return this.findAdById(id);
     }
 
     async updateStatus(id: string, status: string): Promise<Ad> {
         try {
+            // The campaign's status change moves this ad with it in one transaction, and notifies after it commits.
             const ad = await this.findAdById(id);
-            ad.status = status;
-            await this.adRepository.save(ad);
-            const adData = await this.findAdById(id);
-            await this.campaignService.changeCampaignStatus(adData.adSet.campaignId, status);
-            await this.notificationService.createNotification({
-                advertiserId: adData?.adSet?.campaign?.advertiserId,
-                title: "Notification about Ad Status",
-                message: `Your Ad has been ${status} !`
-            })
-            return adData;
+            await this.campaignService.changeCampaignStatus(ad.adSet.campaignId, status);
+            return await this.findAdById(id);
         } catch (error) {
             if (error instanceof NotFoundException) throw error;
             throw new NotAcceptableException(error.message);

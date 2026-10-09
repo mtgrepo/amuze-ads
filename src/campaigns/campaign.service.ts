@@ -251,12 +251,20 @@ export class CampaignService {
         }
     }
 
-    async changeCampaignStatus(id: string, status: string): Promise<Campaign> {
+    /**
+     * Changes a campaign's status together with its ads (they mirror the campaign) and any refund, in one
+     * transaction: all of it is saved or none of it is. `expectedStatus` is checked under the row lock, so two
+     * reviewers acting at once can't both approve or reject. The notification goes out only after the commit.
+     */
+    async changeCampaignStatus(id: string, status: string, expectedStatus?: string): Promise<Campaign> {
         try {
             const campaignData = await this.dataSource.transaction(async (manager) => {
                 const campaign = await manager.findOne(Campaign, { where: { id }, lock: { mode: 'pessimistic_write' } });
                 if (!campaign) {
                     throw new Error("Campaign not found");
+                }
+                if (expectedStatus && campaign.status !== expectedStatus) {
+                    throw new BadRequestException(`Only ${expectedStatus} campaigns can be changed to ${status}`);
                 }
                 const previousStatus = campaign.status;
                 const held = await this.pointsService.netSpentForCampaign(manager, campaign.id);
@@ -268,6 +276,15 @@ export class CampaignService {
 
                 campaign.status = status;
                 const saved = await manager.save(campaign);
+
+                // The campaign's ads move with it, through the same transaction's manager.
+                await manager
+                    .createQueryBuilder()
+                    .update(Ad)
+                    .set({ status })
+                    .where('status = :previousStatus', { previousStatus })
+                    .andWhere('ad_set_id IN (SELECT id FROM ad_sets WHERE campaign_id = :campaignId)', { campaignId: campaign.id })
+                    .execute();
 
                 // Points come back only when the ad never ran: rejected while under review, or sent back
                 // to draft (where it must be paid again). A delivered ad that is rejected keeps its charge.
@@ -319,14 +336,8 @@ export class CampaignService {
 
     async approveCampaign(id: string): Promise<Campaign> {
         try {
-            const campaign = await this.findCampaignById(id);
-            if(campaign.status !== 'pending') {
-                throw new NotAcceptableException('Only pending campaigns can be approved');
-            }
-            const approved = await this.changeCampaignStatus(id, 'active');
-            // Serving needs both the ad and its campaign active, so the ads move with the campaign.
-            await this.moveCampaignAds(id, 'pending', 'active');
-            return approved;
+            // Campaign and ads become active together (serving needs both).
+            return await this.changeCampaignStatus(id, 'active', 'pending');
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
@@ -334,27 +345,11 @@ export class CampaignService {
 
     async rejectCampaign(id: string): Promise<Campaign> {
         try {
-            const campaign = await this.findCampaignById(id);
-            if(campaign.status !== 'pending') {
-                throw new NotAcceptableException('Only pending campaigns can be rejected');
-            }
-            const rejected = await this.changeCampaignStatus(id, 'rejected');
-            await this.moveCampaignAds(id, 'pending', 'rejected');
-            return rejected;
+            // Campaign and ads are rejected and the points refunded together.
+            return await this.changeCampaignStatus(id, 'rejected', 'pending');
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
-    }
-
-    /** Moves the campaign's ads that are in `from` to `to` (e.g. pending ads when the campaign is approved). */
-    private async moveCampaignAds(campaignId: string, from: string, to: string): Promise<void> {
-        await this.adRepository
-            .createQueryBuilder()
-            .update(Ad)
-            .set({ status: to })
-            .where('status = :from', { from })
-            .andWhere('ad_set_id IN (SELECT id FROM ad_sets WHERE campaign_id = :campaignId)', { campaignId })
-            .execute();
     }
 
     async createFullCampaign(input: CreateFullCampaignInput, file: Express.Multer.File) {
