@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Campaign } from "src/campaigns/entities/campaign.entity";
 import { PointLedger } from "src/points/entities/point-ledger.entity";
+import { CampaignExtension } from "src/campaign-extensions/entities/campaign-extension.entity";
 
 // Active campaigns ending within this many days show up in "Needs you".
 const ENDING_SOON_DAYS = 3;
@@ -43,6 +44,20 @@ export class DashboardService {
 
     async getAttention() {
         const pendingCount = await this.campaignRepository.count({ where: { status: 'pending' } });
+
+        // Paid extensions waiting for a decision; the oldest first, since late approval costs the customer days.
+        const pendingExtensionCount = await this.campaignRepository.manager.count(CampaignExtension, { where: { status: 'pending' } });
+        const pendingExtensions = await this.attentionQuery()
+            .innerJoin(CampaignExtension, 'extension', 'extension.campaignId = campaign.id')
+            .addSelect('extension.id', 'extensionId')
+            .addSelect('extension.amount', 'amount')
+            .addSelect('extension.days', 'days')
+            .addSelect("TO_CHAR(extension.newEndDate, 'YYYY-MM-DD')", 'newEndDate')
+            .addSelect('extension.createdAt', 'waitingSince')
+            .where('extension.status = :status', { status: 'pending' })
+            .orderBy('extension.createdAt', 'ASC')
+            .limit(ATTENTION_LIST_LIMIT)
+            .getRawMany();
         const pending = await this.attentionQuery()
             .addSelect('campaign.updatedAt', 'waitingSince')
             .where('campaign.status = :status', { status: 'pending' })
@@ -75,6 +90,12 @@ export class DashboardService {
             pending: pending.map(withTotals),
             endingSoon: endingSoon.map(withTotals),
             endingSoonDays: ENDING_SOON_DAYS,
+            pendingExtensionCount,
+            pendingExtensions: pendingExtensions.map((row) => ({
+                ...withTotals(row),
+                amount: Number(row.amount),
+                days: Number(row.days),
+            })),
         };
     }
 

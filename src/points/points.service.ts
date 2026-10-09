@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
-import { DataSource, EntityManager, Repository } from "typeorm";
+import { DataSource, EntityManager, Repository, Brackets } from "typeorm";
 import { Advertiser } from "src/advertisers/entities/advertiser.entity";
 import { Transactions } from "src/transactions/entities/transaction.entity";
 import { DEFAULT_PAYMENT_METHOD, OFFLINE_PAYMENT_METHOD, TRANSACTION_REFERENCE } from "src/transactions/payment";
@@ -102,14 +102,24 @@ export class PointsService {
         return this.apply(manager, walletId, -Math.abs(amount), type, ref);
     }
 
-    /** Points a campaign still holds: its spends minus its refunds, as a positive number. */
+    /**
+     * Points a campaign holds against its total budget: its own spends minus refunds, plus approved
+     * extensions (approval adds their amount to the total budget). Pending or rejected extensions don't count.
+     */
     async netSpentForCampaign(manager: EntityManager, campaignId: string): Promise<number> {
         const row = await manager
             .createQueryBuilder(PointLedger, 'ledger')
             .select('COALESCE(SUM(ledger.amount), 0)', 'sum')
-            .where('ledger.referenceType = :referenceType', { referenceType: 'campaign' })
-            .andWhere('ledger.referenceId = :campaignId', { campaignId })
-            .andWhere('ledger.type IN (:...types)', { types: ['spend', 'refund'] })
+            .where('ledger.type IN (:...types)', { types: ['spend', 'refund'] })
+            .andWhere(new Brackets((qb) => {
+                qb.where('ledger.referenceType = :campaignRef AND ledger.referenceId = :campaignId', { campaignRef: 'campaign', campaignId })
+                    .orWhere(
+                        `ledger.referenceType = :extensionRef AND ledger.referenceId IN (
+                            SELECT id::text FROM campaign_extensions WHERE campaign_id::text = :campaignId AND status = 'approved')`,
+                        // ::text: :campaignId is also compared with the text reference_id above, so Postgres types it as text.
+                        { extensionRef: 'campaign_extension' },
+                    );
+            }))
             .getRawOne();
         return -Number(row?.sum ?? 0);
     }
