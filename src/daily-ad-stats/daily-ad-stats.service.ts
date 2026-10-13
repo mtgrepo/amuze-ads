@@ -172,7 +172,23 @@ export class DailyAdStatsService {
         }
     }
 
-    async getAdminOverview(fromDate?: string, toDate?: string, advertiserIds?: string[]) {
+    /** The advertiser who owns an ad (through its campaign), for access checks. */
+    async findAdOwnerId(adId: string): Promise<string> {
+        const row = await this.adRepository
+            .createQueryBuilder('ad')
+            .innerJoin('ad.adSet', 'adSet')
+            .innerJoin('adSet.campaign', 'campaign')
+            .select('campaign.advertiserId', 'advertiserId')
+            .where('ad.id = :adId', { adId })
+            .getRawOne();
+        if (!row) {
+            throw new NotFoundException('Ad not found');
+        }
+        return row.advertiserId as string;
+    }
+
+    /** `adId` narrows the totals to one ad (the caller has already checked access to it). */
+    async getAdminOverview(fromDate?: string, toDate?: string, advertiserIds?: string[], adId?: string) {
         if (advertiserIds && advertiserIds.length === 0) {
             return { totalImpressions: 0, totalClicks: 0, totalEngagements: 0, totalWatches: 0, activeAds: 0 };
         }
@@ -200,6 +216,9 @@ export class DailyAdStatsService {
                 .innerJoin('adSet.campaign', 'campaign')
                 .andWhere('campaign.advertiserId IN (:...advertiserIds)', { advertiserIds });
         }
+        if (adId) {
+            statsQb = statsQb.andWhere('stats.adId = :adId', { adId });
+        }
 
         const statsResult = await statsQb.getRawOne();
 
@@ -213,6 +232,9 @@ export class DailyAdStatsService {
         if (advertiserIds) {
             activeAdsQb = activeAdsQb.andWhere('campaign.advertiserId IN (:...advertiserIds)', { advertiserIds });
         }
+        if (adId) {
+            activeAdsQb = activeAdsQb.andWhere('ad.id = :adId', { adId });
+        }
 
         const activeAds = await activeAdsQb.getCount();
 
@@ -225,7 +247,7 @@ export class DailyAdStatsService {
         };
     }
 
-    async getAdminTrend(fromDate?: string, toDate?: string, advertiserIds?: string[]) {
+    async getAdminTrend(fromDate?: string, toDate?: string, advertiserIds?: string[], adId?: string) {
         if (advertiserIds && advertiserIds.length === 0) return [];
         const endDate = toDate ? new Date(toDate) : new Date();
         const startDate = fromDate ? new Date(fromDate) : new Date();
@@ -251,6 +273,9 @@ export class DailyAdStatsService {
                 .innerJoin('ad.adSet', 'adSet')
                 .innerJoin('adSet.campaign', 'campaign')
                 .andWhere('campaign.advertiserId IN (:...advertiserIds)', { advertiserIds });
+        }
+        if (adId) {
+            qb = qb.andWhere('stats.adId = :adId', { adId });
         }
 
         const results = await qb

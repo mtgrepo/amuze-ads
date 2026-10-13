@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, ForbiddenException, Get, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "src/auth/jwt-auth.guard";
 import { DailyAdStatsService } from "./daily-ad-stats.service";
 import { CreateDailyAdStatsDTO } from "./dto/create-daily-ad-stats.dto";
@@ -16,6 +16,14 @@ export class DailyAdStatsController {
         private readonly dailyAdStatsService: DailyAdStatsService,
         private readonly advertiserService: AdvertiserService,
     ) {}
+
+    /** Admin sees any ad; an agency only its clients' ads; an advertiser only their own. */
+    private async assertCanViewAd(user: CurrentUserPayload, adId: string): Promise<void> {
+        const ownerId = await this.dailyAdStatsService.findAdOwnerId(adId);
+        if (!(await this.advertiserService.canAccessAdvertiser(user, ownerId))) {
+            throw new ForbiddenException('You do not have permission to view this ad');
+        }
+    }
 
     @UseGuards(RolesGuard)
     @Roles('admin')
@@ -43,7 +51,8 @@ export class DailyAdStatsController {
     }
 
     @Get('ad/:adId')
-    async findByAdId(@Param('adId') adId: string) {
+    async findByAdId(@Param('adId', ParseUUIDPipe) adId: string, @CurrentUser() user: CurrentUserPayload) {
+        await this.assertCanViewAd(user, adId);
         const stats = await this.dailyAdStatsService.findByAdId(adId);
         return {
             data: stats,
@@ -53,10 +62,12 @@ export class DailyAdStatsController {
 
     @Get('ad/:adId/range')
     async findByDateRange(
-        @Param('adId') adId: string,
+        @Param('adId', ParseUUIDPipe) adId: string,
+        @CurrentUser() user: CurrentUserPayload,
         @Query('startDate') startDate: string,
         @Query('endDate') endDate: string
     ) {
+        await this.assertCanViewAd(user, adId);
         const stats = await this.dailyAdStatsService.findByDateRange(
             adId,
             new Date(startDate),
@@ -74,9 +85,11 @@ export class DailyAdStatsController {
         @Query('fromDate') fromDate?: string,
         @Query('toDate') toDate?: string,
         @Query('advertiserId') advertiserId?: string,
+        @Query('adId', new ParseUUIDPipe({ optional: true })) adId?: string,
     ) {
         const scope = await this.advertiserService.resolveListScope(user, advertiserId);
-        const result = await this.dailyAdStatsService.getAdminOverview(fromDate, toDate, scope);
+        if (adId) await this.assertCanViewAd(user, adId);
+        const result = await this.dailyAdStatsService.getAdminOverview(fromDate, toDate, scope, adId);
         return {
             data: result,
             message: 'Admin overview retrieved successfully',
@@ -89,9 +102,11 @@ export class DailyAdStatsController {
         @Query('fromDate') fromDate?: string,
         @Query('toDate') toDate?: string,
         @Query('advertiserId') advertiserId?: string,
+        @Query('adId', new ParseUUIDPipe({ optional: true })) adId?: string,
     ) {
         const scope = await this.advertiserService.resolveListScope(user, advertiserId);
-        const result = await this.dailyAdStatsService.getAdminTrend(fromDate, toDate, scope);
+        if (adId) await this.assertCanViewAd(user, adId);
+        const result = await this.dailyAdStatsService.getAdminTrend(fromDate, toDate, scope, adId);
         return {
             data: result,
             message: 'Admin trend retrieved successfully',
