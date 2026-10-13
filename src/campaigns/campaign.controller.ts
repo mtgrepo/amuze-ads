@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, ForbiddenException, Get, Param, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { memoryStorage } from "multer";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
@@ -90,6 +90,9 @@ export class CampaignController {
     @UseGuards(CampaignOwnershipGuard)
     @Patch(':id/change-status')
     async changeStatus(@Param('id') id: string, @Body('status') status: string, @CurrentUser() user: CurrentUserPayload) {
+        if (status === 'paused') {
+            throw new BadRequestException('Pausing campaigns is not supported yet');
+        }
         if (user.role !== 'admin') {
             const existing = await this.campaignService.findCampaignById(id);
             const allowed = CAMPAIGN_SELF_SERVICE_TRANSITIONS[existing.status] ?? [];

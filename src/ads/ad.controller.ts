@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { BadRequestException, Body, Controller, ForbiddenException, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { AdService } from "./ad.service";
 import { AdOwnershipGuard } from "./ad-ownership.guard";
 import { AD_SELF_SERVICE_TRANSITIONS } from "./ad-status";
@@ -60,6 +60,9 @@ export class AdController {
     @UseGuards(AdOwnershipGuard)
     @Patch(':id/status')
     async updateStatus(@Param('id') id: string, @Body('status') status: string, @CurrentUser() user: CurrentUserPayload) {
+        if (status === 'paused') {
+            throw new BadRequestException('Pausing ads is not supported yet');
+        }
         if (user.role !== 'admin') {
             const existing = await this.adService.findAdById(id);
             const allowed = AD_SELF_SERVICE_TRANSITIONS[existing.status] ?? [];
