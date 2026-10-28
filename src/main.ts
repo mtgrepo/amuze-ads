@@ -3,12 +3,14 @@ import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { SuccessInterceptor } from './common/interceptors/success.interceptor';
 import { ExceptionInterceptor } from './common/interceptors/exception.interceptor';
+import { XssSanitizePipe } from './common/pipes/xss-sanitize.pipe';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   const DEFAULT_CORS_ORIGINS = [
     'http://localhost:5173',
+    'http://localhost:5175',
     'https://uat-portal.ad.amuze.com.mm',
     'https://uat-customer.ad.amuze.com.mm',
   ];
@@ -22,7 +24,14 @@ async function bootstrap() {
   // Global success response wrapper
   app.useGlobalInterceptors(new SuccessInterceptor());
   // Global validation pipe
-  app.useGlobalPipes(new ValidationPipe());
+  app.useGlobalPipes(
+    new XssSanitizePipe(), 
+    new ValidationPipe({
+      transform: true,
+      forbidNonWhitelisted: true,
+      whitelist: true
+    })
+  );
   // Global error response wrapper
   app.useGlobalFilters(new ExceptionInterceptor());
 
