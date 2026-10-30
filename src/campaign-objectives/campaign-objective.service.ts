@@ -6,10 +6,13 @@ import { Ad } from "src/ads/entities/ad.entity";
 import { AdvertiserService } from "src/advertisers/advertiser.service";
 import { SystemConfigsService } from "src/system-configs/system-configs.service";
 import type { CurrentUserPayload } from "src/auth/current-user.decorator";
-import { CampaignObjective, OBJECTIVE_TYPES, type ObjectiveType } from "./entities/campaign-objective.entity";
+import { CampaignObjective, MAX_OBJECTIVE_TARGET, OBJECTIVE_TYPES, type ObjectiveType } from "./entities/campaign-objective.entity";
 
 /** system_configs category holding one price row per objective type. */
 export const OBJECTIVE_PRICING_CATEGORY = 'objective_pricing';
+
+/** Keeps a single cost inside the integer columns it's stored in. */
+const MAX_POINTS_AMOUNT = 1_000_000_000;
 
 export interface ObjectivePrice {
     objectiveType: ObjectiveType;
@@ -64,6 +67,9 @@ export class CampaignObjectiveService {
         const prices = await this.getPrices();
         const seen = new Set<string>();
         return inputs.map((input) => {
+            if (!input || typeof input !== 'object') {
+                throw new BadRequestException('Each objective needs a type and a target');
+            }
             if (!OBJECTIVE_TYPES.includes(input.objectiveType as ObjectiveType)) {
                 throw new BadRequestException(`Objective type must be one of: ${OBJECTIVE_TYPES.join(', ')}`);
             }
@@ -74,6 +80,9 @@ export class CampaignObjectiveService {
             if (!isPositiveInt(Number(input.targetCount))) {
                 throw new BadRequestException('Each objective needs a target of at least 1');
             }
+            if (Number(input.targetCount) > MAX_OBJECTIVE_TARGET) {
+                throw new BadRequestException(`An objective target can be at most ${MAX_OBJECTIVE_TARGET.toLocaleString('en-US')}`);
+            }
             if (input.objectiveType === 'watch' && assetType !== 'video') {
                 throw new BadRequestException('Watch objectives need a video ad');
             }
@@ -82,12 +91,16 @@ export class CampaignObjectiveService {
                 throw new BadRequestException(`${input.objectiveType} objectives aren't available right now`);
             }
             const targetCount = Number(input.targetCount);
+            const cost = Math.ceil(targetCount / price.pricePer) * price.price;
+            if (cost > MAX_POINTS_AMOUNT) {
+                throw new BadRequestException(`That ${input.objectiveType} target costs more than one ad can take; lower it`);
+            }
             return {
                 objectiveType: input.objectiveType as ObjectiveType,
                 targetCount,
                 price: price.price,
                 pricePer: price.pricePer,
-                cost: Math.ceil(targetCount / price.pricePer) * price.price,
+                cost,
             };
         });
     }

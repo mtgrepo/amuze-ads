@@ -1,6 +1,6 @@
 import { Type } from "class-transformer";
-import { IsArray, IsIn, IsInt, Min, ValidateNested } from "class-validator";
-import { OBJECTIVE_TYPES } from "../entities/campaign-objective.entity";
+import { IsArray, IsIn, IsInt, Max, Min, ValidateNested } from "class-validator";
+import { MAX_OBJECTIVE_TARGET, OBJECTIVE_TYPES } from "../entities/campaign-objective.entity";
 
 export class ObjectiveInputDto {
     @IsIn(OBJECTIVE_TYPES)
@@ -8,6 +8,7 @@ export class ObjectiveInputDto {
 
     @IsInt()
     @Min(1)
+    @Max(MAX_OBJECTIVE_TARGET)
     targetCount: number;
 }
 

@@ -4,6 +4,9 @@ import { Campaign } from "src/campaigns/entities/campaign.entity";
 export const OBJECTIVE_TYPES = ['impression', 'click', 'watch'] as const;
 export type ObjectiveType = typeof OBJECTIVE_TYPES[number];
 
+/** Largest target accepted, so counts and costs stay inside the integer columns. */
+export const MAX_OBJECTIVE_TARGET = 100_000_000;
+
 /**
  * A result target the customer paid for on top of the package, e.g. 500 clicks.
  * Only picked objectives are stored; the price is copied from the config when saved,

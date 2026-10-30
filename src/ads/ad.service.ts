@@ -45,8 +45,10 @@ export class AdService {
             .leftJoin('ads.adSet', 'adSet')
             .leftJoin('adSet.campaign', 'campaign')
             .leftJoin('campaign.advertiser', 'advertiser')
+            // The list's "Edit budget" dialog needs the package id and, for watch objectives, the asset type.
+            .leftJoin('ads.adCreative', 'adCreative')
             .where(advertiserIds ? 'advertiser.id IN (:...advertiserIds)' : '1=1', { advertiserIds })
-            .addSelect(['adSet.ageMin', 'adSet.ageMax', 'adSet.gender', 'campaign.id', 'campaign.name', 'campaign.packageName', 'campaign.packageDays', 'campaign.packagePrice', 'campaign.packageQuantity', 'campaign.planCost', 'campaign.objectiveCost', 'campaign.totalBudget', 'campaign.startDate', 'campaign.endDate', 'campaign.status', 'advertiser.id', 'advertiser.name'])
+            .addSelect(['adSet.ageMin', 'adSet.ageMax', 'adSet.gender', 'campaign.id', 'campaign.name', 'campaign.packageId', 'campaign.packageName', 'campaign.packageDays', 'campaign.packagePrice', 'campaign.packageQuantity', 'campaign.planCost', 'campaign.objectiveCost', 'campaign.totalBudget', 'campaign.startDate', 'campaign.endDate', 'campaign.status', 'advertiser.id', 'advertiser.name', 'adCreative.id', 'adCreative.assetType'])
             .getMany();
 
             return data;
