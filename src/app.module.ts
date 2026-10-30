@@ -21,6 +21,7 @@ import { AdServingModule } from './ad-serving/ad-serving.module';
 import { PointsModule } from './points/points.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { CampaignExtensionModule } from './campaign-extensions/campaign-extension.module';
+import { AdPackageModule } from './ad-packages/ad-package.module';
 import { PresignedUrlInterceptor } from './common/interceptors/presigned-url.interceptor';
 import { ScheduleModule } from '@nestjs/schedule';
 
@@ -62,6 +63,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     PointsModule,
     DashboardModule,
     CampaignExtensionModule,
+    AdPackageModule,
   ],
   controllers: [AppController],
   providers: [
