@@ -23,6 +23,16 @@ export interface ObjectiveInput {
     targetCount: number;
 }
 
+export interface ObjectiveProgress {
+    objectiveType: ObjectiveType;
+    selected: boolean;
+    targetCount: number;
+    delivered: number;
+    price: number | null;
+    pricePer: number | null;
+    cost: number;
+}
+
 export type PricedObjective = Pick<CampaignObjective, 'objectiveType' | 'targetCount' | 'price' | 'pricePer' | 'cost'>;
 
 const isPositiveInt = (value: unknown): value is number => Number.isInteger(value) && (value as number) >= 1;
@@ -105,6 +115,47 @@ export class CampaignObjectiveService {
             throw new ForbiddenException('You do not have permission to access this campaign');
         }
         return campaign;
+    }
+
+    /**
+     * All three objective types for a campaign, in a fixed order. Picked ones carry their saved target and
+     * price; unpicked ones come back as zero with no price. Delivered is counted from the daily stats of the
+     * campaign's ads within its run, for every type.
+     */
+    async getProgress(campaignId: string): Promise<ObjectiveProgress[]> {
+        const [saved, totals] = await Promise.all([
+            this.dataSource.manager.find(CampaignObjective, { where: { campaignId } }),
+            this.dataSource.query(
+                `SELECT COALESCE(SUM(s.impressions), 0)::int AS impression,
+                        COALESCE(SUM(s.clicks), 0)::int AS click,
+                        COALESCE(SUM(s.watches), 0)::int AS watch
+                   FROM advertiser_ad_stats s
+                   JOIN ads a ON a.id = s.ad_id
+                   JOIN ad_sets st ON st.id = a.ad_set_id
+                   JOIN campaigns c ON c.id = st.campaign_id
+                  WHERE c.id = $1 AND s.stat_date BETWEEN c.start_date AND c.end_date`,
+                [campaignId],
+            ),
+        ]);
+        const delivered = totals[0] ?? {};
+        return OBJECTIVE_TYPES.map((type) => {
+            const row = saved.find((o) => o.objectiveType === type);
+            return {
+                objectiveType: type,
+                selected: !!row,
+                targetCount: row?.targetCount ?? 0,
+                delivered: Number(delivered[type] ?? 0),
+                price: row?.price ?? null,
+                pricePer: row?.pricePer ?? null,
+                cost: row?.cost ?? 0,
+            };
+        });
+    }
+
+    /** Progress for a campaign this user may see. */
+    async getProgressFor(campaignId: string, user: CurrentUserPayload): Promise<ObjectiveProgress[]> {
+        await this.accessibleCampaign(this.dataSource.manager, campaignId, user);
+        return this.getProgress(campaignId);
     }
 
     /** Sets a draft campaign's objectives (replacing any it had) and returns the new totals. */

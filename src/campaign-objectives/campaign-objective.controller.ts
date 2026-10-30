@@ -16,6 +16,12 @@ export class CampaignObjectiveController {
         return { data: await this.objectiveService.getPrices(), message: 'Objective prices retrieved successfully' };
     }
 
+    /** Always all three types; unpicked ones are `selected: false` with zero target and cost. */
+    @Get('campaign/:campaignId')
+    async progress(@Param('campaignId', ParseUUIDPipe) campaignId: string, @CurrentUser() user: CurrentUserPayload) {
+        return { data: await this.objectiveService.getProgressFor(campaignId, user), message: 'Objectives retrieved successfully' };
+    }
+
     @Put('campaign/:campaignId')
     async save(
         @Param('campaignId', ParseUUIDPipe) campaignId: string,

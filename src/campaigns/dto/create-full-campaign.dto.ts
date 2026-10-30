@@ -25,6 +25,11 @@ export class CreateFullCampaignDto {
     @IsDateString()
     startDate: string
 
+    /** JSON list of { objectiveType, targetCount }; omitted or empty means no objectives. */
+    @IsOptional()
+    @IsString()
+    objectives?: string
+
     @IsNotEmpty()
     @IsString()
     creativeName: string

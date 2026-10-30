@@ -13,6 +13,7 @@ import { PointsService } from "src/points/points.service";
 import { isAllowedFormat } from "src/ads/ad-formats";
 import { AdPackageService } from "src/ad-packages/ad-package.service";
 import { applyPackage, dateOnly } from "src/ad-packages/package-pricing";
+import { CampaignObjectiveService, type ObjectiveInput } from "src/campaign-objectives/campaign-objective.service";
 
 // Statuses an ad can only be in once it's fully paid.
 const PAID_STATUSES = ['pending', 'active', 'paused'];
@@ -30,6 +31,8 @@ export interface CreateFullCampaignInput {
     packageId: string;
     packageQuantity: number;
     startDate: string;
+    /** Picked objectives only; empty when none. */
+    objectives: ObjectiveInput[];
     creativeName: string;
     assetType: string;
     destinationLink: string;
@@ -52,6 +55,7 @@ export class CampaignService {
         private readonly advertiserService: AdvertiserService,
         private readonly pointsService: PointsService,
         private readonly packageService: AdPackageService,
+        private readonly objectiveService: CampaignObjectiveService,
         @InjectDataSource()
         private readonly dataSource: DataSource,
     ) {}
@@ -345,6 +349,7 @@ export class CampaignService {
         const pkg = await this.packageService.findBuyable(input.packageId);
         const priced = this.campaignRepository.create({ objectiveCost: 0 });
         applyPackage(priced, pkg, input.packageQuantity, input.startDate);
+        const pricedObjectives = await this.objectiveService.priceObjectives(input.objectives, input.assetType);
         try {
             const assetPath = await this.minioService.upload(file, `ad-creatives/${input.advertiserId}`);
 
@@ -378,6 +383,8 @@ export class CampaignService {
                     modelType: 'display_ads',
                 });
                 const savedCampaign = await manager.save(campaign);
+                // Adds the objective rows and re-totals the campaign: package + objectives.
+                await this.objectiveService.replaceForCampaign(manager, savedCampaign, pricedObjectives);
 
                 const adSet = manager.create(AdSet, {
                     campaignId: savedCampaign.id,

@@ -13,6 +13,7 @@ import { RolesGuard } from "../auth/roles.guard";
 import { Roles } from "../auth/roles.decorator";
 import { CAMPAIGN_SELF_SERVICE_TRANSITIONS } from "./campaign-status";
 import { AdvertiserService } from "src/advertisers/advertiser.service";
+import type { ObjectiveInput } from "src/campaign-objectives/campaign-objective.service";
 
 @UseGuards(JwtAuthGuard)
 @Controller('campaigns')
@@ -142,12 +143,26 @@ export class CampaignController {
     ) {
         const advertiserId = await this.advertiserService.resolveTargetAdvertiserId(user, dto.advertiserId);
 
+        // Multipart sends the objectives as a JSON list in a text field.
+        let objectives: ObjectiveInput[] = [];
+        if (dto.objectives !== undefined && dto.objectives !== '') {
+            try {
+                objectives = JSON.parse(dto.objectives);
+            } catch {
+                objectives = null as unknown as ObjectiveInput[];
+            }
+            if (!Array.isArray(objectives)) {
+                throw new BadRequestException('Objectives must be a JSON list');
+            }
+        }
+
         const result = await this.campaignService.createFullCampaign({
             advertiserId,
             name: dto.name,
             packageId: dto.packageId,
             packageQuantity: Number(dto.packageQuantity),
             startDate: dto.startDate,
+            objectives,
             creativeName: dto.creativeName,
             assetType: dto.assetType,
             destinationLink: dto.destinationLink,
