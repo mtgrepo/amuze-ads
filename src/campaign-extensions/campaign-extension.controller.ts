@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, ParseIntPipe, ParseUUIDPipe, Post, Query, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "src/auth/jwt-auth.guard";
 import { RolesGuard } from "src/auth/roles.guard";
 import { Roles } from "src/auth/roles.decorator";
@@ -31,14 +31,14 @@ export class CampaignExtensionController {
     async quote(
         @CurrentUser() user: CurrentUserPayload,
         @Query('campaignId', ParseUUIDPipe) campaignId: string,
-        @Query('newEndDate') newEndDate: string,
+        @Query('quantity', ParseIntPipe) quantity: number,
     ) {
-        return { data: await this.extensionService.quote(campaignId, newEndDate, user), message: 'Extension quote' };
+        return { data: await this.extensionService.quote(campaignId, quantity, user), message: 'Extension quote' };
     }
 
     @Post()
     async request(@Body() dto: CreateCampaignExtensionDto, @CurrentUser() user: CurrentUserPayload) {
-        const extension = await this.extensionService.request(dto.campaignId, dto.newEndDate, user);
+        const extension = await this.extensionService.request(dto.campaignId, dto.quantity, user);
         return {
             data: extension,
             message: extension.status === 'approved' ? 'Campaign extended' : 'Extension submitted for review',

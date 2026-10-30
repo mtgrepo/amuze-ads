@@ -23,27 +23,16 @@ export class CampaignController {
         private readonly advertiserService: AdvertiserService,
     ) {}
 
-    private calculateEndDate(startDate: Date, totalBudget: number, dailyBudget: number): Date {
-        const days = Math.floor(totalBudget / dailyBudget);
-        const endDate = new Date(startDate);
-        endDate.setDate(endDate.getDate() + days - 1);
-        return endDate;
-    }
-
     @Post()
     async createCampaign(@Body() campaignData: CreateCampaignDTO, @CurrentUser() user: CurrentUserPayload) {
-        const { advertiserId, ...rest } = campaignData;
-        const targetAdvertiserId = await this.advertiserService.resolveTargetAdvertiserId(user, advertiserId);
-        const startDate = new Date(rest.startDate);
-        const endDate = this.calculateEndDate(startDate, rest.totalBudget, rest.dailyBudget);
-        // Always a draft; it leaves draft only through POST /campaigns/:id/pay.
+        const targetAdvertiserId = await this.advertiserService.resolveTargetAdvertiserId(user, campaignData.advertiserId);
         const campaign = await this.campaignService.createCampaign({
-            ...rest,
             advertiserId: targetAdvertiserId,
-            startDate,
-            endDate,
-            spentAmount: 0,
-            status: 'draft',
+            name: campaignData.name,
+            modelType: campaignData.modelType,
+            packageId: campaignData.packageId,
+            packageQuantity: campaignData.packageQuantity,
+            startDate: campaignData.startDate,
         });
         return {
             data: campaign,
@@ -75,12 +64,7 @@ export class CampaignController {
     @UseGuards(CampaignOwnershipGuard)
     @Patch(':id/update')
     async update(@Param('id') id: string, @Body() updateData: UpdateCampaignDTO) {
-        const { startDate, endDate, ...rest } = updateData;
-        const campaign = await this.campaignService.updateCampaign(id, {
-            ...rest,
-            ...(startDate && { startDate: new Date(startDate) }),
-            ...(endDate && { endDate: new Date(endDate) }),
-        });
+        const campaign = await this.campaignService.updateCampaign(id, updateData);
         return {
             data: campaign,
             message: 'Campaign updated successfully',
@@ -158,19 +142,12 @@ export class CampaignController {
     ) {
         const advertiserId = await this.advertiserService.resolveTargetAdvertiserId(user, dto.advertiserId);
 
-        const startDate = new Date(dto.startDate);
-        const endDate = new Date(dto.endDate);
-        const dailyBudget = Number(dto.dailyBudget);
-        const totalBudget = Number(dto.totalBudget);
-
         const result = await this.campaignService.createFullCampaign({
             advertiserId,
             name: dto.name,
-            budgetPlan: dto.budgetPlan,
-            dailyBudget,
-            totalBudget,
-            startDate,
-            endDate,
+            packageId: dto.packageId,
+            packageQuantity: Number(dto.packageQuantity),
+            startDate: dto.startDate,
             creativeName: dto.creativeName,
             assetType: dto.assetType,
             destinationLink: dto.destinationLink,

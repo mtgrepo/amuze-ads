@@ -11,54 +11,25 @@ import { Ad } from "src/ads/entities/ad.entity";
 import { AdvertiserService } from "src/advertisers/advertiser.service";
 import { PointsService } from "src/points/points.service";
 import { isAllowedFormat } from "src/ads/ad-formats";
+import { AdPackageService } from "src/ad-packages/ad-package.service";
+import { applyPackage, dateOnly } from "src/ad-packages/package-pricing";
 
 // Statuses an ad can only be in once it's fully paid.
 const PAID_STATUSES = ['pending', 'active', 'paused'];
 
-// Budget and schedule together set the amount paid, so they're editable only while draft.
-const BUDGET_FIELDS = ['budgetPlan', 'dailyBudget', 'totalBudget', 'startDate', 'endDate'] as const;
-
-type BudgetShape = Pick<Campaign, 'budgetPlan' | 'dailyBudget' | 'totalBudget' | 'startDate' | 'endDate'>;
-
-/**
- * Validates a campaign's budget and makes the server the owner of the amount paid:
- * a daily plan's total is daily × days (inclusive), a total plan has no daily amount.
- */
-function normalizeBudget(budget: BudgetShape): void {
-    const start = new Date(budget.startDate).getTime();
-    const end = new Date(budget.endDate).getTime();
-    if (isNaN(start) || isNaN(end)) {
-        throw new BadRequestException('Start and end dates are required');
-    }
-    if (end < start) {
-        throw new BadRequestException('End date must be on or after the start date');
-    }
-    budget.budgetPlan = budget.budgetPlan === 'total' ? 'total' : 'daily';
-    if (budget.budgetPlan === 'daily') {
-        const dailyBudget = Number(budget.dailyBudget);
-        if (!(dailyBudget >= 1)) {
-            throw new BadRequestException('Daily budget must be at least 1');
-        }
-        const days = Math.round((end - start) / (24 * 60 * 60 * 1000)) + 1;
-        budget.dailyBudget = dailyBudget;
-        budget.totalBudget = dailyBudget * days;
-    } else {
-        budget.dailyBudget = 0;
-        budget.totalBudget = Number(budget.totalBudget);
-    }
-    if (!(budget.totalBudget >= 1)) {
-        throw new BadRequestException('Total budget must be at least 1');
-    }
+/** What sets a campaign's price and schedule: the package, how many units, and the start date. */
+export interface PackageChoice {
+    packageId?: string;
+    packageQuantity?: number;
+    startDate?: string;
 }
 
 export interface CreateFullCampaignInput {
     advertiserId: string;
     name: string;
-    budgetPlan: string;
-    dailyBudget: number;
-    totalBudget: number;
-    startDate: Date;
-    endDate: Date;
+    packageId: string;
+    packageQuantity: number;
+    startDate: string;
     creativeName: string;
     assetType: string;
     destinationLink: string;
@@ -80,16 +51,25 @@ export class CampaignService {
         private readonly minioService: MinioService,
         private readonly advertiserService: AdvertiserService,
         private readonly pointsService: PointsService,
+        private readonly packageService: AdPackageService,
         @InjectDataSource()
         private readonly dataSource: DataSource,
     ) {}
 
-    async createCampaign(campaignData: Partial<Campaign>): Promise<Campaign> {
+    /** A new draft priced from an active package. */
+    async createCampaign(data: { advertiserId: string; name: string; modelType?: string } & Required<PackageChoice>): Promise<Campaign> {
+        const pkg = await this.packageService.findBuyable(data.packageId);
         try {
-            // Drop relation/id keys an unwhitelisted body could carry; the owner is campaignData.advertiserId, already resolved.
-            const { id: _id, advertiser: _advertiser, ...safeData } = campaignData;
-            const campaign = await this.campaignRepository.create(safeData);
-            normalizeBudget(campaign);
+            const campaign = this.campaignRepository.create({
+                advertiserId: data.advertiserId,
+                name: data.name,
+                ...(data.modelType ? { modelType: data.modelType } : {}),
+                objectiveCost: 0,
+                spentAmount: 0,
+                // Always a draft; it leaves draft only through POST /campaigns/:id/pay.
+                status: 'draft',
+            });
+            applyPackage(campaign, pkg, Number(data.packageQuantity), data.startDate);
             return await this.campaignRepository.save(campaign);
         } catch (error) {
             if (error instanceof BadRequestException) throw error;
@@ -122,30 +102,34 @@ export class CampaignService {
         }
     }
 
-    async updateCampaign(id: string, updateData: Partial<Campaign>): Promise<Campaign> {
+    async updateCampaign(id: string, updateData: { name?: string } & PackageChoice): Promise<Campaign> {
         try {
-            // Same row lock as payCampaign: a budget save and a payment can't interleave,
+            // Same row lock as payCampaign: a package save and a payment can't interleave,
             // so a paid campaign is never written back to draft or re-priced.
             return await this.dataSource.transaction(async (manager) => {
                 const campaign = await manager.findOne(Campaign, { where: { id }, lock: { mode: 'pessimistic_write' } });
                 if (!campaign) {
                     throw new BadRequestException('Campaign not found');
                 }
-                // Only the name and budget/schedule are editable here. Status, owner and payment
+                // Only the name and the package/schedule are editable here. Status, owner and payment
                 // never change through this endpoint (status leaves draft only via payCampaign).
-                const editable: Partial<Campaign> = {};
-                if (updateData.name !== undefined) editable.name = updateData.name;
-                for (const key of BUDGET_FIELDS) {
-                    if (updateData[key] !== undefined) (editable as any)[key] = updateData[key];
-                }
-                const touchesBudget = BUDGET_FIELDS.some((key) => editable[key] !== undefined);
-                if (touchesBudget && campaign.status !== 'draft') {
-                    throw new BadRequestException('Budget can only be changed while the ad is a draft');
-                }
+                if (updateData.name !== undefined) campaign.name = updateData.name;
 
-                Object.assign(campaign, editable);
-                if (touchesBudget) {
-                    normalizeBudget(campaign);
+                const { packageId, packageQuantity, startDate } = updateData;
+                if (packageId !== undefined || packageQuantity !== undefined || startDate !== undefined) {
+                    if (campaign.status !== 'draft') {
+                        throw new BadRequestException('The package can only be changed while the ad is a draft');
+                    }
+                    // Keeping the same package keeps the price the customer was shown, even if an admin changed it since.
+                    const terms = packageId && packageId !== campaign.packageId
+                        ? await this.packageService.findBuyable(packageId)
+                        : { id: campaign.packageId, name: campaign.packageName, durationDays: campaign.packageDays, price: campaign.packagePrice };
+                    applyPackage(
+                        campaign,
+                        terms,
+                        Number(packageQuantity ?? campaign.packageQuantity),
+                        startDate ?? dateOnly(campaign.startDate),
+                    );
                 }
                 return await manager.save(campaign);
             });
@@ -357,17 +341,11 @@ export class CampaignService {
         if (!isAllowedFormat(input.adType, input.placementKey, input.assetType)) {
             throw new BadRequestException(`${input.adType} ads can't use ${input.assetType} in ${input.placementKey}`);
         }
+        // Validate and price the package before uploading, so a rejected ad leaves no orphan asset.
+        const pkg = await this.packageService.findBuyable(input.packageId);
+        const priced = this.campaignRepository.create({ objectiveCost: 0 });
+        applyPackage(priced, pkg, input.packageQuantity, input.startDate);
         try {
-            // Validate and price the budget before uploading, so a rejected ad leaves no orphan asset.
-            const budget = {
-                budgetPlan: input.budgetPlan,
-                dailyBudget: input.dailyBudget,
-                totalBudget: input.totalBudget,
-                startDate: input.startDate,
-                endDate: input.endDate,
-            } as BudgetShape;
-            normalizeBudget(budget);
-
             const assetPath = await this.minioService.upload(file, `ad-creatives/${input.advertiserId}`);
 
             return await this.dataSource.transaction(async (manager) => {
@@ -384,7 +362,16 @@ export class CampaignService {
                 const campaign = manager.create(Campaign, {
                     advertiserId: input.advertiserId,
                     name: input.name,
-                    ...budget,
+                    packageId: priced.packageId,
+                    packageName: priced.packageName,
+                    packageDays: priced.packageDays,
+                    packagePrice: priced.packagePrice,
+                    packageQuantity: priced.packageQuantity,
+                    startDate: priced.startDate,
+                    endDate: priced.endDate,
+                    planCost: priced.planCost,
+                    objectiveCost: 0,
+                    totalBudget: priced.totalBudget,
                     spentAmount: 0,
                     // Every new ad is a draft until it's paid (see payCampaign).
                     status: 'draft',

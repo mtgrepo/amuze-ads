@@ -1,5 +1,4 @@
-import { Type } from "class-transformer";
-import { IsDateString, IsIn, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
+import { IsDateString, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Min } from "class-validator";
 
 const MODEL_TYPES = ['display_ads', 'content_discovery', 'brand_campaign', 'self_service'];
 export class CreateCampaignDTO {
@@ -12,13 +11,12 @@ export class CreateCampaignDTO {
     @IsIn(MODEL_TYPES)
     modelType: string
 
-    @IsNotEmpty()
-    @IsNumber()
-    dailyBudget: number
+    @IsUUID()
+    packageId: string
 
-    @IsNotEmpty()
-    @IsNumber()
-    totalBudget: number
+    @IsInt()
+    @Min(1)
+    packageQuantity: number
 
     @IsNotEmpty()
     @IsDateString()

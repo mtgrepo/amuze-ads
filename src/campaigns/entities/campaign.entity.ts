@@ -1,5 +1,7 @@
 import { AdSet } from "src/ad-sets/entities/ad-sets.entity";
 import { Advertiser } from "src/advertisers/entities/advertiser.entity";
+import { AdPackage } from "src/ad-packages/entities/ad-package.entity";
+import { CampaignObjective } from "src/campaign-objectives/entities/campaign-objective.entity";
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
 @Entity('campaigns')
@@ -10,12 +12,36 @@ export class Campaign {
     @Column({ type: 'varchar', length: 255 })
     name: string;
 
-    @Column({ type: 'varchar', length: 20, name: 'budget_plan', default: 'daily' })
-    budgetPlan: string;
+    @Column({ type: 'uuid', name: 'package_id' })
+    packageId: string;
 
-    @Column({ type: 'integer', name: 'daily_budget' })
-    dailyBudget: number;
+    @ManyToOne(() => AdPackage, { onDelete: 'RESTRICT' })
+    @JoinColumn({ name: 'package_id' })
+    package: AdPackage;
 
+    // A copy of the package as bought, so admin edits never change an existing campaign.
+    @Column({ type: 'varchar', length: 100, name: 'package_name' })
+    packageName: string;
+
+    @Column({ type: 'integer', name: 'package_days' })
+    packageDays: number;
+
+    @Column({ type: 'integer', name: 'package_price' })
+    packagePrice: number;
+
+    /** Units bought; approved extensions add to it. */
+    @Column({ type: 'integer', name: 'package_quantity' })
+    packageQuantity: number;
+
+    /** packagePrice × packageQuantity */
+    @Column({ type: 'integer', name: 'plan_cost' })
+    planCost: number;
+
+    /** Sum of the objectives' costs. */
+    @Column({ type: 'integer', name: 'objective_cost', default: 0 })
+    objectiveCost: number;
+
+    /** planCost + objectiveCost: the amount paid and refunded. */
     @Column({ type: 'integer', name: 'total_budget' })
     totalBudget: number;
 
@@ -51,5 +77,8 @@ export class Campaign {
 
     @OneToMany(() => AdSet, (adSet) => adSet.campaign)
     adSets: AdSet[]
+
+    @OneToMany(() => CampaignObjective, (objective) => objective.campaign)
+    objectives: CampaignObjective[]
 
 }

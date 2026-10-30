@@ -31,6 +31,10 @@ export class CampaignExtension {
     @Column({ type: 'date', name: 'new_end_date' })
     newEndDate: string;
 
+    /** Units of the campaign's package bought; days = quantity × the package's days. */
+    @Column({ type: 'integer' })
+    quantity: number;
+
     @Column({ type: 'integer' })
     days: number;
 

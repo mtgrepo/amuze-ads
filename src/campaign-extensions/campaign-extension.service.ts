@@ -8,35 +8,12 @@ import { PointsService } from "src/points/points.service";
 import { NotificationService } from "src/notifications/notification.service";
 import type { CurrentUserPayload } from "src/auth/current-user.decorator";
 import { CampaignExtension, EXTENSION_STATUSES, type ExtensionStatus } from "./entities/campaign-extension.entity";
+import { MAX_RUN_DAYS, addDays, assertQuantity, dateOnly, daysInclusive } from "src/ad-packages/package-pricing";
 
 /** Campaigns that can be extended. Expired ones restart on approval; there's no time limit. */
 const EXTENDABLE_STATUSES = ['active', 'paused', 'expired'];
 /** Ledger referenceType for an extension's spend and refund, so they never mix with the campaign's own payment. */
 export const EXTENSION_LEDGER_REFERENCE = 'campaign_extension';
-
-const DAY_MS = 86_400_000;
-
-/** YYYY-MM-DD for a date column value (string) or a Date, in server-local time like the expiry job. */
-function dateOnly(value: Date | string): string {
-    if (typeof value === 'string') return value.slice(0, 10);
-    const month = String(value.getMonth() + 1).padStart(2, '0');
-    const day = String(value.getDate()).padStart(2, '0');
-    return `${value.getFullYear()}-${month}-${day}`;
-}
-
-function toUtc(date: string): number {
-    const [y, m, d] = date.split('-').map(Number);
-    return Date.UTC(y, m - 1, d);
-}
-
-function addDays(date: string, days: number): string {
-    return new Date(toUtc(date) + days * DAY_MS).toISOString().slice(0, 10);
-}
-
-/** Days from `from` to `to`, both included. */
-function daysInclusive(from: string, to: string): number {
-    return Math.round((toUtc(to) - toUtc(from)) / DAY_MS) + 1;
-}
 
 export interface ExtensionQuote {
     campaignId: string;
@@ -44,8 +21,12 @@ export interface ExtensionQuote {
     startDate: string;
     newEndDate: string;
     days: number;
-    /** Points per day: the daily budget, or the campaign's average for a total-budget plan. */
-    dailyRate: number;
+    /** Units of the campaign's package being bought. */
+    quantity: number;
+    packageName: string;
+    /** Days and points per unit, from the campaign's own copy of its package. */
+    unitDays: number;
+    unitPrice: number;
     amount: number;
     payerName: string;
     balance: number;
@@ -76,14 +57,15 @@ export class CampaignExtensionService {
         return campaign;
     }
 
-    /** Validates an extension and prices it. Used for the preview, and again under a row lock when requesting. */
-    private async price(manager: EntityManager, campaign: Campaign, newEndDate: string) {
+    /**
+     * Validates an extension and prices it: more units of the campaign's own package, at the price it
+     * was bought for. Used for the preview, and again under a row lock when requesting.
+     */
+    private async price(manager: EntityManager, campaign: Campaign, quantity: number) {
         if (!EXTENDABLE_STATUSES.includes(campaign.status)) {
             throw new BadRequestException('Only active, paused or expired campaigns can be extended');
         }
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(newEndDate ?? '')) {
-            throw new BadRequestException('New end date must look like 2026-10-31');
-        }
+        assertQuantity(quantity);
         const pending = await manager.exists(CampaignExtension, { where: { campaignId: campaign.id, status: 'pending' } });
         if (pending) {
             throw new BadRequestException('This campaign already has an extension waiting for review');
@@ -94,42 +76,42 @@ export class CampaignExtensionService {
         const dayAfterEnd = addDays(previousEndDate, 1);
         // Expired campaigns restart today, so the days they sat expired aren't charged.
         const startDate = dayAfterEnd > today ? dayAfterEnd : today;
-        if (newEndDate < startDate) {
-            throw new BadRequestException(`The new end date must be on or after ${startDate}`);
-        }
 
-        const days = daysInclusive(startDate, newEndDate);
-        const campaignDays = daysInclusive(dateOnly(campaign.startDate), previousEndDate);
-        const dailyRate = campaign.budgetPlan === 'daily'
-            ? Number(campaign.dailyBudget)
-            : Math.ceil(Number(campaign.totalBudget) / Math.max(campaignDays, 1));
-        if (!(dailyRate >= 1)) {
-            throw new BadRequestException('This campaign has no daily rate to price an extension');
+        const unitDays = Number(campaign.packageDays);
+        const unitPrice = Number(campaign.packagePrice);
+        const days = unitDays * quantity;
+        const newEndDate = addDays(startDate, days - 1);
+        if (daysInclusive(dateOnly(campaign.startDate), newEndDate) > MAX_RUN_DAYS) {
+            throw new BadRequestException(`A campaign can run for at most ${MAX_RUN_DAYS} days`);
         }
-        return { previousEndDate, startDate, newEndDate, days, dailyRate, amount: dailyRate * days };
+        return {
+            previousEndDate, startDate, newEndDate, days, quantity,
+            packageName: campaign.packageName, unitDays, unitPrice, amount: unitPrice * quantity,
+        };
     }
 
-    async quote(campaignId: string, newEndDate: string, user: CurrentUserPayload): Promise<ExtensionQuote> {
+    async quote(campaignId: string, quantity: number, user: CurrentUserPayload): Promise<ExtensionQuote> {
         const manager = this.dataSource.manager;
         const campaign = await this.accessibleCampaign(manager, campaignId, user);
-        const priced = await this.price(manager, campaign, newEndDate);
+        const priced = await this.price(manager, campaign, quantity);
         // The agency pays for its clients.
         const payer = await this.pointsService.assertWalletOwner(await this.advertiserService.resolvePayerId(campaign.advertiserId));
         return { campaignId, ...priced, payerName: payer.name, balance: payer.pointsBalance };
     }
 
     /** Charges the extension and holds it for review. An admin's own request is approved at once. */
-    async request(campaignId: string, newEndDate: string, user: CurrentUserPayload): Promise<CampaignExtension> {
+    async request(campaignId: string, quantity: number, user: CurrentUserPayload): Promise<CampaignExtension> {
         const { extension, campaign } = await this.dataSource.transaction(async (manager) => {
             // Row lock: two quick requests can't both pass the "one pending extension" check.
             const locked = await this.accessibleCampaign(manager, campaignId, user, true);
-            const priced = await this.price(manager, locked, newEndDate);
+            const priced = await this.price(manager, locked, quantity);
 
             const created = await manager.save(manager.create(CampaignExtension, {
                 campaignId,
                 startDate: priced.startDate,
                 previousEndDate: priced.previousEndDate,
                 newEndDate: priced.newEndDate,
+                quantity: priced.quantity,
                 days: priced.days,
                 amount: priced.amount,
                 status: 'pending',
@@ -160,9 +142,14 @@ export class CampaignExtensionService {
         return extension;
     }
 
-    /** Moves the end date, adds the amount to the total budget, and restarts an expired campaign. */
+    /**
+     * Moves the end date, adds the units and amount to the package and total, and restarts an expired campaign.
+     * Objectives are untouched: their targets stay, their deadline moves with the end date.
+     */
     private async applyApproval(manager: EntityManager, extension: CampaignExtension, campaign: Campaign, adminId: string) {
         campaign.endDate = new Date(`${extension.newEndDate}T00:00:00`);
+        campaign.packageQuantity = Number(campaign.packageQuantity) + extension.quantity;
+        campaign.planCost = Number(campaign.planCost) + extension.amount;
         campaign.totalBudget = Number(campaign.totalBudget) + extension.amount;
         // It may also have expired while the extension waited; it was requested in time, so it runs again.
         if (campaign.status === 'expired' && extension.newEndDate >= dateOnly(new Date())) {

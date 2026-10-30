@@ -1,9 +1,8 @@
-import { IsIn, IsNotEmpty, IsNumberString, IsOptional, IsString } from "class-validator";
+import { IsDateString, IsIn, IsNotEmpty, IsNumberString, IsOptional, IsString, IsUUID } from "class-validator";
 import { AD_TYPES, PLACEMENT_KEYS } from "src/ads/ad-formats";
 
 const ASSET_TYPES = ['image', 'video'];
 const GENDERS = ['male', 'female', 'all'];
-const BUDGET_PLANS = ['daily', 'total'];
 
 export class CreateFullCampaignDto {
     @IsOptional()
@@ -14,25 +13,17 @@ export class CreateFullCampaignDto {
     @IsString()
     name: string
 
-    @IsNotEmpty()
-    @IsIn(BUDGET_PLANS)
-    budgetPlan: string
+    @IsUUID()
+    packageId: string
 
+    // Multipart sends text; the service checks it's a whole number ≥ 1.
     @IsNotEmpty()
     @IsNumberString()
-    dailyBudget: string
+    packageQuantity: string
 
     @IsNotEmpty()
-    @IsNumberString()
-    totalBudget: string
-
-    @IsNotEmpty()
-    @IsString()
+    @IsDateString()
     startDate: string
-
-    @IsNotEmpty()
-    @IsString()
-    endDate: string
 
     @IsNotEmpty()
     @IsString()

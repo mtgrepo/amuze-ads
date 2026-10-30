@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { AdPackageModule } from "src/ad-packages/ad-package.module";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { Campaign } from "./entities/campaign.entity";
 import { Ad } from "src/ads/entities/ad.entity";
@@ -15,6 +16,7 @@ import { PointsModule } from "src/points/points.module";
     NotificationModule,
     AdvertiserModule,
     PointsModule,
+    AdPackageModule,
   ],
   providers: [CampaignService, CampaignOwnershipGuard],
   controllers: [CampaignController],

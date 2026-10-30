@@ -1,29 +1,21 @@
-import { IsDateString, IsIn, IsNumber, IsOptional, IsString, Min } from "class-validator";
+import { IsDateString, IsInt, IsOptional, IsString, IsUUID, Min } from "class-validator";
 
+/** Name any time; package, quantity and start date only while draft. The end date is always calculated. */
 export class UpdateCampaignDTO {
     @IsOptional()
     @IsString()
     name?: string
 
     @IsOptional()
-    @IsIn(['daily', 'total'])
-    budgetPlan?: string
+    @IsUUID()
+    packageId?: string
 
     @IsOptional()
-    @IsNumber()
-    @Min(0)
-    dailyBudget?: number
-
-    @IsOptional()
-    @IsNumber()
+    @IsInt()
     @Min(1)
-    totalBudget?: number
+    packageQuantity?: number
 
     @IsOptional()
     @IsDateString()
     startDate?: string
-
-    @IsOptional()
-    @IsDateString()
-    endDate?: string
 }
