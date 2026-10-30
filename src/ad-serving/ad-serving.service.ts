@@ -3,6 +3,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Ad } from "src/ads/entities/ad.entity";
 import { DailyAdStatsService } from "src/daily-ad-stats/daily-ad-stats.service";
+import { ObjectivePacingService } from "src/campaign-objectives/objective-pacing.service";
 
 export interface ServingCriteria {
   placement: string;
@@ -23,7 +24,20 @@ export class AdServingService {
     @InjectRepository(Ad)
     private readonly adRepository: Repository<Ad>,
     private readonly dailyAdStatsService: DailyAdStatsService,
+    private readonly pacingService: ObjectivePacingService,
   ) {}
+
+  /** Weighted random pick: ads behind on a bought objective get a bigger share (see ObjectivePacingService). */
+  private pickWeighted(candidates: Ad[]): Ad | null {
+    if (candidates.length === 0) return null;
+    const weights = candidates.map((ad) => this.pacingService.weightFor(ad.id));
+    let roll = Math.random() * weights.reduce((sum, w) => sum + w, 0);
+    for (let i = 0; i < candidates.length; i++) {
+      roll -= weights[i];
+      if (roll < 0) return candidates[i];
+    }
+    return candidates[candidates.length - 1];
+  }
 
   async findServableAd(criteria: ServingCriteria): Promise<ServableAdResult | null> {
     let qb = this.adRepository
@@ -42,7 +56,7 @@ export class AdServingService {
       qb = qb.andWhere("(adSet.gender = 'all' OR adSet.gender = :gender)", { gender: criteria.gender });
     }
 
-    const candidate = await qb.orderBy('RANDOM()').getOne();
+    const candidate = this.pickWeighted(await qb.getMany());
     if (!candidate) {
       return null;
     }

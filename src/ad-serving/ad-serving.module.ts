@@ -5,9 +5,10 @@ import { DailyAdStatsModule } from 'src/daily-ad-stats/daily-ad-stats.module';
 import { AdServingService } from './ad-serving.service';
 import { AdServingController } from './ad-serving.controller';
 import { ApiKeyGuard } from './api-key.guard';
+import { CampaignObjectiveModule } from 'src/campaign-objectives/campaign-objective.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Ad]), DailyAdStatsModule],
+  imports: [TypeOrmModule.forFeature([Ad]), DailyAdStatsModule, CampaignObjectiveModule],
   controllers: [AdServingController],
   providers: [AdServingService, ApiKeyGuard],
 })
