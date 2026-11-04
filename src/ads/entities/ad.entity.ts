@@ -1,7 +1,7 @@
 import { AdSet } from "src/ad-sets/entities/ad-sets.entity";
 import { AdvertiserAdStats } from "src/daily-ad-stats/entities/daily-ad-stats.entity";
 import { AdCreative } from "src/ad-creatives/entities/ad-creative.entity";
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { AfterLoad, Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
 @Entity('ads')
 export class Ad {
@@ -45,11 +45,21 @@ export class Ad {
     @Column({ type: 'integer', default: 0, name: 'total_clicks' })
     totalClicks: number;
 
-    @Column({ type: 'integer', default: 0, name: 'total_engagements' })
-    totalEngagements: number;
-
     @Column({ type: 'integer', default: 0, name: 'total_watches' })
     totalWatches: number;
+
+    @Column({ type: 'integer', default: 0, name: 'total_completions' })
+    totalCompletions: number;
+
+    /** Clicks + watches; worked out, not stored. */
+    totalEngagements: number;
+
+    @AfterLoad()
+    computeTotalEngagements() {
+        if (this.totalClicks !== undefined && this.totalWatches !== undefined) {
+            this.totalEngagements = Number(this.totalClicks) + Number(this.totalWatches);
+        }
+    }
 
     @OneToMany(() => AdvertiserAdStats, (adStats) => adStats.ad)
     adStats: AdvertiserAdStats[];

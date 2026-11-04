@@ -4,6 +4,7 @@ import { Repository } from "typeorm";
 import { Ad } from "src/ads/entities/ad.entity";
 import { DailyAdStatsService } from "src/daily-ad-stats/daily-ad-stats.service";
 import { ObjectivePacingService } from "src/campaign-objectives/objective-pacing.service";
+import type { TrackEvent } from "./dto/track-event.dto";
 
 export interface ServingCriteria {
   placement: string;
@@ -73,7 +74,7 @@ export class AdServingService {
     };
   }
 
-  async trackEvent(adId: string, event: string): Promise<void> {
-    await this.dailyAdStatsService.trackEvent(adId, event);
+  async trackEvent(adId: string, event: TrackEvent, userId: string): Promise<void> {
+    await this.dailyAdStatsService.trackEvent(adId, event, userId);
   }
 }

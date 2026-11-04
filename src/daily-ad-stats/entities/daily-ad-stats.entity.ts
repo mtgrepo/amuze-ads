@@ -1,5 +1,5 @@
 import { Ad } from "src/ads/entities/ad.entity";
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
+import { AfterLoad, Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, Unique, UpdateDateColumn } from "typeorm";
 
 @Entity('advertiser_ad_stats')
 @Unique(['adId', 'startDate'])
@@ -19,11 +19,23 @@ export class AdvertiserAdStats {
     @Column({ type: 'integer' })
     clicks: number;
 
-    @Column({ type: 'integer', default: 0 })
-    engagements: number;
-
+    /** Video playback starts. */
     @Column({ type: 'integer', default: 0 })
     watches: number;
+
+    /** Video plays that reached the end. */
+    @Column({ type: 'integer', default: 0 })
+    completions: number;
+
+    /** Clicks + watches; worked out, not stored. */
+    engagements: number;
+
+    @AfterLoad()
+    computeEngagements() {
+        if (this.clicks !== undefined && this.watches !== undefined) {
+            this.engagements = Number(this.clicks) + Number(this.watches);
+        }
+    }
 
     @CreateDateColumn({ name: 'created_at' })
     createdAt: Date;

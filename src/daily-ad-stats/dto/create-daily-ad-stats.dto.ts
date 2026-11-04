@@ -19,5 +19,9 @@ export class CreateDailyAdStatsDTO {
 
     @IsOptional()
     @IsNumber()
-    engagements?: number;
+    watches?: number;
+
+    @IsOptional()
+    @IsNumber()
+    completions?: number;
 }

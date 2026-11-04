@@ -1,6 +1,7 @@
 import { Body, Controller, Get, NotFoundException, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiKeyGuard } from "./api-key.guard";
 import { AdServingService } from "./ad-serving.service";
+import { TrackEventDto } from "./dto/track-event.dto";
 
 @UseGuards(ApiKeyGuard)
 @Controller('ad-serving')
@@ -30,8 +31,8 @@ export class AdServingController {
     }
 
     @Post('track')
-    async track(@Body() body: { adId: string; event: string }) {
-        await this.adServingService.trackEvent(body.adId, body.event);
+    async track(@Body() body: TrackEventDto) {
+        await this.adServingService.trackEvent(body.adId, body.event, body.userId);
         return {
             message: 'Event tracked',
         };

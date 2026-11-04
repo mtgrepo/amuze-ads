@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { AdvertiserAdStats } from "./entities/daily-ad-stats.entity";
+import { AdDailyViewer } from "./entities/ad-daily-viewer.entity";
 import { DailyAdStatsService } from "./daily-ad-stats.service";
 import { DailyAdStatsController } from "./daily-ad-stats.controller";
 import { Ad } from "src/ads/entities/ad.entity";
@@ -9,7 +10,7 @@ import { AdvertiserModule } from "src/advertisers/advertiser.module";
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([AdvertiserAdStats, Ad, Campaign]),
+        TypeOrmModule.forFeature([AdvertiserAdStats, AdDailyViewer, Ad, Campaign]),
         AdvertiserModule,
     ],
     providers: [DailyAdStatsService],
