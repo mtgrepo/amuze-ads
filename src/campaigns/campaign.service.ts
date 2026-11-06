@@ -12,7 +12,7 @@ import { AdvertiserService } from "src/advertisers/advertiser.service";
 import { PointsService } from "src/points/points.service";
 import { isAllowedFormat } from "src/ads/ad-formats";
 import { AdPackageService } from "src/ad-packages/ad-package.service";
-import { applyPackage, dateOnly } from "src/ad-packages/package-pricing";
+import { applyPackage, assertStartNotPast, dateOnly } from "src/ad-packages/package-pricing";
 import { CampaignObjectiveService, type ObjectiveInput } from "src/campaign-objectives/campaign-objective.service";
 
 // Statuses an ad can only be in once it's fully paid.
@@ -74,6 +74,7 @@ export class CampaignService {
                 status: 'draft',
             });
             applyPackage(campaign, pkg, Number(data.packageQuantity), data.startDate);
+            assertStartNotPast(data.startDate);
             return await this.campaignRepository.save(campaign);
         } catch (error) {
             if (error instanceof BadRequestException) throw error;
@@ -123,6 +124,10 @@ export class CampaignService {
                 if (packageId !== undefined || packageQuantity !== undefined || startDate !== undefined) {
                     if (campaign.status !== 'draft') {
                         throw new BadRequestException('The package can only be changed while the ad is a draft');
+                    }
+                    // Only a new date is checked, so a draft whose start has passed can still change its package.
+                    if (startDate !== undefined && startDate.slice(0, 10) !== dateOnly(campaign.startDate)) {
+                        assertStartNotPast(startDate);
                     }
                     // Keeping the same package keeps the price the customer was shown, even if an admin changed it since.
                     const terms = packageId && packageId !== campaign.packageId
@@ -349,6 +354,7 @@ export class CampaignService {
         const pkg = await this.packageService.findBuyable(input.packageId);
         const priced = this.campaignRepository.create({ objectiveCost: 0 });
         applyPackage(priced, pkg, input.packageQuantity, input.startDate);
+        assertStartNotPast(input.startDate);
         const pricedObjectives = await this.objectiveService.priceObjectives(input.objectives, input.assetType);
         try {
             const assetPath = await this.minioService.upload(file, `ad-creatives/${input.advertiserId}`);

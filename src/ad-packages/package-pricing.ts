@@ -7,6 +7,9 @@ export const MAX_RUN_DAYS = 366;
 
 const DAY_MS = 86_400_000;
 
+/** Whose calendar decides what "today" is for a start date. */
+const BUSINESS_TIMEZONE = 'Asia/Yangon';
+
 /** YYYY-MM-DD for a date column value (string) or a Date, in server-local time like the expiry job. */
 export function dateOnly(value: Date | string): string {
     if (typeof value === 'string') return value.slice(0, 10);
@@ -42,6 +45,14 @@ export function assertQuantity(quantity: number): void {
  * Prices and schedules a campaign from a package bought in whole units: copies the package,
  * sets the end date (start + days × quantity − 1), the plan cost and the total (plan + objectives).
  */
+/** A campaign can start today or later, going by the date in Myanmar rather than the server's clock. */
+export function assertStartNotPast(startDate: string): void {
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: BUSINESS_TIMEZONE }).format(new Date());
+    if (startDate.slice(0, 10) < today) {
+        throw new BadRequestException("The start date can't be in the past");
+    }
+}
+
 export function applyPackage(campaign: Campaign, terms: PackageTerms, quantity: number, startDate: string): void {
     if (!/^\d{4}-\d{2}-\d{2}/.test(startDate ?? '')) {
         throw new BadRequestException('Start date is required');
