@@ -10,6 +10,11 @@ const DAY_MS = 86_400_000;
 /** Whose calendar decides what "today" is for a start date. */
 const BUSINESS_TIMEZONE = 'Asia/Yangon';
 
+/** Today as YYYY-MM-DD in Myanmar, the date users see. */
+export function todayInBusinessTz(): string {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: BUSINESS_TIMEZONE }).format(new Date());
+}
+
 /** YYYY-MM-DD for a date column value (string) or a Date, in server-local time like the expiry job. */
 export function dateOnly(value: Date | string): string {
     if (typeof value === 'string') return value.slice(0, 10);
@@ -47,8 +52,7 @@ export function assertQuantity(quantity: number): void {
  */
 /** A campaign can start today or later, going by the date in Myanmar rather than the server's clock. */
 export function assertStartNotPast(startDate: string): void {
-    const today = new Intl.DateTimeFormat('en-CA', { timeZone: BUSINESS_TIMEZONE }).format(new Date());
-    if (startDate.slice(0, 10) < today) {
+    if (startDate.slice(0, 10) < todayInBusinessTz()) {
         throw new BadRequestException("The start date can't be in the past");
     }
 }

@@ -5,6 +5,7 @@ import { Ad } from "src/ads/entities/ad.entity";
 import { DailyAdStatsService } from "src/daily-ad-stats/daily-ad-stats.service";
 import { ObjectivePacingService } from "src/campaign-objectives/objective-pacing.service";
 import type { TrackEvent } from "./dto/track-event.dto";
+import { todayInBusinessTz } from "src/ad-packages/package-pricing";
 
 export interface ServingCriteria {
   placement: string;
@@ -48,7 +49,9 @@ export class AdServingService {
       .innerJoin('adSet.campaign', 'campaign')
       .where('ad.status = :adStatus', { adStatus: 'active' })
       .andWhere('campaign.status = :campaignStatus', { campaignStatus: 'active' })
-      .andWhere('ad.placementKey = :placement', { placement: criteria.placement });
+      .andWhere('ad.placementKey = :placement', { placement: criteria.placement })
+      // Paid ads go active straight away, but only run between their start and end dates.
+      .andWhere('campaign.startDate <= :today AND campaign.endDate >= :today', { today: todayInBusinessTz() });
 
     if (criteria.age !== undefined) {
       qb = qb.andWhere('adSet.ageMin <= :age AND adSet.ageMax >= :age', { age: criteria.age });
