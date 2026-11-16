@@ -1,14 +1,26 @@
-/** Age groups the audience breakdown is counted in. Only the group is stored, never a user's age. */
+/**
+ * Age groups shown in the audience breakdown. The exact age is stored and grouped when reading,
+ * so these can change at any time and past data is regrouped with them.
+ */
 export const AGE_GROUPS = ['13-17', '18-24', '25-34', '35-44', '45-54', '55-64', '65+', 'unknown'] as const;
 export const GENDER_GROUPS = ['male', 'female', 'unknown'] as const;
 
 export type AgeGroup = typeof AGE_GROUPS[number];
 export type GenderGroup = typeof GENDER_GROUPS[number];
 
-/** "25", 25 or 25.0 → "25-34"; nothing, null or nonsense → "unknown". */
-export function ageGroupOf(value: unknown): AgeGroup {
+/** Stored when the app sends no age or one that can't be real. */
+export const UNKNOWN_AGE = 0;
+
+/** 18, "18" or 18.0 → 18; nothing, null or nonsense (under 13, over 120) → UNKNOWN_AGE. */
+export function ageOf(value: unknown): number {
     const age = typeof value === 'string' && value.trim() ? Number(value) : value;
-    if (typeof age !== 'number' || !Number.isFinite(age) || age < 13 || age > 120) return 'unknown';
+    if (typeof age !== 'number' || !Number.isFinite(age) || age < 13 || age > 120) return UNKNOWN_AGE;
+    return Math.floor(age);
+}
+
+/** The group a stored age falls in. */
+export function ageGroupOf(age: number): AgeGroup {
+    if (age === UNKNOWN_AGE) return 'unknown';
     if (age < 18) return '13-17';
     if (age < 25) return '18-24';
     if (age < 35) return '25-34';

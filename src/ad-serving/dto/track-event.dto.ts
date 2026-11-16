@@ -17,7 +17,7 @@ export class TrackEventDto {
     @MaxLength(100)
     userId: string;
 
-    /** The viewer's age in years, for the age breakdown. Optional; only its group (e.g. 25-34) is stored. */
+    /** The viewer's age in years (e.g. 18), for the age breakdown. Optional; grouped in reports. */
     @IsOptional()
     age?: number | string | null;
 

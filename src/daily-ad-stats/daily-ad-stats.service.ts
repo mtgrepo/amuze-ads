@@ -8,7 +8,7 @@ import { Campaign } from "src/campaigns/entities/campaign.entity";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import type { TrackEvent } from "src/ad-serving/dto/track-event.dto";
 import { AdDailyDemographic } from "./entities/ad-daily-demographic.entity";
-import { AGE_GROUPS, GENDER_GROUPS, ageGroupOf, genderGroupOf } from "./demographics";
+import { AGE_GROUPS, GENDER_GROUPS, ageGroupOf, ageOf, genderGroupOf } from "./demographics";
 
 function getLocalDateString(date: Date): string {
     const year = date.getFullYear();
@@ -104,11 +104,11 @@ export class DailyAdStatsService {
                         [adId, today, userId],
                     );
                 }
-                // Same event counted by the viewer's age group and gender, for the audience breakdown.
+                // Same event counted by the viewer's age and gender, for the audience breakdown.
                 await manager.query(
-                    `INSERT INTO ad_daily_demographics (ad_id, stat_date, age_group, gender, "${column.daily}") VALUES ($1, $2, $3, $4, 1)
-                     ON CONFLICT (ad_id, stat_date, age_group, gender) DO UPDATE SET "${column.daily}" = ad_daily_demographics."${column.daily}" + 1`,
-                    [adId, today, ageGroupOf(age), genderGroupOf(gender)],
+                    `INSERT INTO ad_daily_demographics (ad_id, stat_date, age, gender, "${column.daily}") VALUES ($1, $2, $3, $4, 1)
+                     ON CONFLICT (ad_id, stat_date, age, gender) DO UPDATE SET "${column.daily}" = ad_daily_demographics."${column.daily}" + 1`,
+                    [adId, today, ageOf(age), genderGroupOf(gender)],
                 );
                 await manager.query(`UPDATE ads SET "${column.total}" = "${column.total}" + 1 WHERE id = $1`, [adId]);
             });
@@ -430,7 +430,7 @@ export class DailyAdStatsService {
 
         let qb = this.advertiserAdStatsRepository.manager
             .createQueryBuilder(AdDailyDemographic, 'demo')
-            .select('demo.ageGroup', 'ageGroup')
+            .select('demo.age', 'age')
             .addSelect('demo.gender', 'gender')
             .addSelect('COALESCE(SUM(demo.impressions), 0)', 'impressions')
             .addSelect('COALESCE(SUM(demo.clicks), 0)', 'clicks')
@@ -447,8 +447,8 @@ export class DailyAdStatsService {
         if (adId) {
             qb = qb.andWhere('demo.adId = :adId', { adId });
         }
-        const rows: { ageGroup: string; gender: string; impressions: string; clicks: string; watches: string; completions: string }[] =
-            await qb.groupBy('demo.ageGroup').addGroupBy('demo.gender').getRawMany();
+        const rows: { age: number; gender: string; impressions: string; clicks: string; watches: string; completions: string }[] =
+            await qb.groupBy('demo.age').addGroupBy('demo.gender').getRawMany();
 
         const total = (groups: readonly string[], keyOf: (r: (typeof rows)[number]) => string) =>
             groups.map((group) => rows.filter((r) => keyOf(r) === group).reduce((sum, r) => ({
@@ -459,7 +459,8 @@ export class DailyAdStatsService {
                 completions: sum.completions + Number(r.completions),
             }), empty(group)));
 
-        return { byAge: total(AGE_GROUPS, (r) => r.ageGroup), byGender: total(GENDER_GROUPS, (r) => r.gender) };
+        // Exact ages are grouped here, so changing AGE_GROUPS regroups past data too.
+        return { byAge: total(AGE_GROUPS, (r) => ageGroupOf(Number(r.age))), byGender: total(GENDER_GROUPS, (r) => r.gender) };
     }
 
     async getPlacementBreakdown(fromDate?: string, toDate?: string, advertiserIds?: string[]) {

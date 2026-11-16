@@ -2,8 +2,9 @@ import { Ad } from "src/ads/entities/ad.entity";
 import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryColumn } from "typeorm";
 
 /**
- * Daily counts per ad split by the viewer's age group and gender, as the app reports them on each event.
- * Only groups are kept (e.g. "25-34", "female"), never a user's exact age. Events without them count as "unknown".
+ * Daily counts per ad split by the viewer's age and gender, as the app reports them on each event.
+ * Only counts are kept, never which user had which age. Age 0 means unknown; gender is male, female or unknown.
+ * Ages are grouped when reading (see demographics.ts), so the groups can change without losing past data.
  */
 @Entity('ad_daily_demographics')
 @Index(['statDate'])
@@ -14,8 +15,8 @@ export class AdDailyDemographic {
     @PrimaryColumn({ type: 'date', name: 'stat_date' })
     statDate: string;
 
-    @PrimaryColumn({ type: 'varchar', length: 10, name: 'age_group' })
-    ageGroup: string;
+    @PrimaryColumn({ type: 'smallint' })
+    age: number;
 
     @PrimaryColumn({ type: 'varchar', length: 10 })
     gender: string;
