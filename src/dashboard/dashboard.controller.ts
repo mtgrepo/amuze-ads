@@ -26,6 +26,15 @@ export class DashboardController {
         };
     }
 
+    /** The Income page: money received and earned from ads, by day, by customer and by package. */
+    @Get('income')
+    async getIncome(@Query('fromDate') fromDate?: string, @Query('toDate') toDate?: string) {
+        return {
+            data: await this.dashboardService.getIncome(fromDate, toDate),
+            message: 'Income report retrieved successfully',
+        };
+    }
+
     @Get('points')
     async getPointsSummary(@Query('fromDate') fromDate?: string, @Query('toDate') toDate?: string) {
         return {
