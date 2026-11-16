@@ -77,7 +77,7 @@ export class AdServingService {
     };
   }
 
-  async trackEvent(adId: string, event: TrackEvent, userId: string): Promise<void> {
-    await this.dailyAdStatsService.trackEvent(adId, event, userId);
+  async trackEvent(adId: string, event: TrackEvent, userId: string, age?: unknown, gender?: unknown): Promise<void> {
+    await this.dailyAdStatsService.trackEvent(adId, event, userId, age, gender);
   }
 }

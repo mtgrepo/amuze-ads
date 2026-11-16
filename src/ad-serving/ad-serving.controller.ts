@@ -52,7 +52,7 @@ export class AdServingController {
 
     @Post('track')
     async track(@Body() body: TrackEventDto) {
-        await this.adServingService.trackEvent(body.adId, body.event, body.userId);
+        await this.adServingService.trackEvent(body.adId, body.event, body.userId, body.age, body.gender);
         return {
             message: 'Event tracked',
         };

@@ -7,6 +7,8 @@ import { Ad } from "src/ads/entities/ad.entity";
 import { Campaign } from "src/campaigns/entities/campaign.entity";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import type { TrackEvent } from "src/ad-serving/dto/track-event.dto";
+import { AdDailyDemographic } from "./entities/ad-daily-demographic.entity";
+import { AGE_GROUPS, GENDER_GROUPS, ageGroupOf, genderGroupOf } from "./demographics";
 
 function getLocalDateString(date: Date): string {
     const year = date.getFullYear();
@@ -66,7 +68,7 @@ export class DailyAdStatsService {
     ) {}
 
     /** Counts one event from the app. A view also records the user for reach. */
-    async trackEvent(adId: string, event: TrackEvent, userId: string): Promise<void> {
+    async trackEvent(adId: string, event: TrackEvent, userId: string, age?: unknown, gender?: unknown): Promise<void> {
         try {
             const column = EVENT_COLUMN[event];
             if (!column) {
@@ -102,6 +104,12 @@ export class DailyAdStatsService {
                         [adId, today, userId],
                     );
                 }
+                // Same event counted by the viewer's age group and gender, for the audience breakdown.
+                await manager.query(
+                    `INSERT INTO ad_daily_demographics (ad_id, stat_date, age_group, gender, "${column.daily}") VALUES ($1, $2, $3, $4, 1)
+                     ON CONFLICT (ad_id, stat_date, age_group, gender) DO UPDATE SET "${column.daily}" = ad_daily_demographics."${column.daily}" + 1`,
+                    [adId, today, ageGroupOf(age), genderGroupOf(gender)],
+                );
                 await manager.query(`UPDATE ads SET "${column.total}" = "${column.total}" + 1 WHERE id = $1`, [adId]);
             });
         } catch (error) {
@@ -407,6 +415,51 @@ export class DailyAdStatsService {
             totalWatches: Number(r.totalWatches),
             totalCompletions: Number(r.totalCompletions),
         }));
+    }
+
+    /**
+     * Impressions, clicks, watches and completions by the viewer's age group and by gender, every group listed
+     * (zeros included) so the report always shows the same rows. Counts start from when the app sends age/gender.
+     */
+    async getDemographics(fromDate?: string, toDate?: string, advertiserIds?: string[], adId?: string) {
+        const empty = (group: string) => ({ group, impressions: 0, clicks: 0, watches: 0, completions: 0 });
+        if (advertiserIds && advertiserIds.length === 0) {
+            return { byAge: AGE_GROUPS.map(empty), byGender: GENDER_GROUPS.map(empty) };
+        }
+        const range = rangeOf(fromDate, toDate);
+
+        let qb = this.advertiserAdStatsRepository.manager
+            .createQueryBuilder(AdDailyDemographic, 'demo')
+            .select('demo.ageGroup', 'ageGroup')
+            .addSelect('demo.gender', 'gender')
+            .addSelect('COALESCE(SUM(demo.impressions), 0)', 'impressions')
+            .addSelect('COALESCE(SUM(demo.clicks), 0)', 'clicks')
+            .addSelect('COALESCE(SUM(demo.watches), 0)', 'watches')
+            .addSelect('COALESCE(SUM(demo.completions), 0)', 'completions')
+            .where('demo.statDate BETWEEN :startDate AND :endDate', range);
+        if (advertiserIds) {
+            qb = qb
+                .innerJoin('demo.ad', 'ad')
+                .innerJoin('ad.adSet', 'adSet')
+                .innerJoin('adSet.campaign', 'campaign')
+                .andWhere('campaign.advertiserId IN (:...advertiserIds)', { advertiserIds });
+        }
+        if (adId) {
+            qb = qb.andWhere('demo.adId = :adId', { adId });
+        }
+        const rows: { ageGroup: string; gender: string; impressions: string; clicks: string; watches: string; completions: string }[] =
+            await qb.groupBy('demo.ageGroup').addGroupBy('demo.gender').getRawMany();
+
+        const total = (groups: readonly string[], keyOf: (r: (typeof rows)[number]) => string) =>
+            groups.map((group) => rows.filter((r) => keyOf(r) === group).reduce((sum, r) => ({
+                group,
+                impressions: sum.impressions + Number(r.impressions),
+                clicks: sum.clicks + Number(r.clicks),
+                watches: sum.watches + Number(r.watches),
+                completions: sum.completions + Number(r.completions),
+            }), empty(group)));
+
+        return { byAge: total(AGE_GROUPS, (r) => r.ageGroup), byGender: total(GENDER_GROUPS, (r) => r.gender) };
     }
 
     async getPlacementBreakdown(fromDate?: string, toDate?: string, advertiserIds?: string[]) {
