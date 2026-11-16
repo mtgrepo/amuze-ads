@@ -138,6 +138,12 @@ export class ActivityService {
             order: { createdAt: 'DESC' },
             take: 200,
         });
-        return rows.map(({ actorId: _id, actorName: _name, ...rest }) => rest);
+        // Customers see what happened and when, never which admin did it.
+        return rows.map((row) => {
+            const { actorId, actorName, ...rest } = row;
+            void actorId;
+            void actorName;
+            return rest;
+        });
     }
 }
