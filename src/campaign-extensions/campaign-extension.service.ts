@@ -9,6 +9,7 @@ import { NotificationService } from "src/notifications/notification.service";
 import type { CurrentUserPayload } from "src/auth/current-user.decorator";
 import { CampaignExtension, EXTENSION_STATUSES, type ExtensionStatus } from "./entities/campaign-extension.entity";
 import { MAX_RUN_DAYS, addDays, assertQuantity, dateOnly, daysInclusive } from "src/ad-packages/package-pricing";
+import { ActivityService } from "src/activity/activity.service";
 
 /** Campaigns that can be extended. Expired ones restart on approval; there's no time limit. */
 const EXTENDABLE_STATUSES = ['active', 'paused', 'expired'];
@@ -40,6 +41,7 @@ export class CampaignExtensionService {
         private readonly advertiserService: AdvertiserService,
         private readonly pointsService: PointsService,
         private readonly notificationService: NotificationService,
+        private readonly activity: ActivityService,
         @InjectDataSource()
         private readonly dataSource: DataSource,
     ) {}
@@ -126,6 +128,11 @@ export class CampaignExtensionService {
                 note: `Extension: ${locked.name} to ${priced.newEndDate}`,
             });
 
+            await this.activity.record(manager, {
+                action: 'extension.requested', entityType: 'extension', entityId: created.id, campaignId, advertiserId: locked.advertiserId,
+                summary: `Extension requested: +${priced.days} ${priced.days === 1 ? 'day' : 'days'}`,
+                meta: { days: priced.days, quantity: priced.quantity, points: priced.amount, newEndDate: priced.newEndDate },
+            });
             if (user.role === 'admin') {
                 await this.applyApproval(manager, created, locked, user.id);
             }
@@ -168,6 +175,11 @@ export class CampaignExtensionService {
         extension.reviewedByAdminId = adminId;
         extension.reviewedAt = new Date();
         await manager.save(extension);
+        await this.activity.record(manager, {
+            action: 'extension.approved', entityType: 'extension', entityId: extension.id, campaignId: campaign.id, advertiserId: campaign.advertiserId,
+            summary: `Extension approved: now ends ${extension.newEndDate}`,
+            meta: { days: extension.days, points: extension.amount, newEndDate: extension.newEndDate },
+        });
     }
 
     private async lockPending(manager: EntityManager, extensionId: string) {
@@ -196,7 +208,7 @@ export class CampaignExtensionService {
     }
 
     /** Refunds exactly this extension's points. The campaign and its first payment are untouched. */
-    async reject(extensionId: string, adminId: string): Promise<CampaignExtension> {
+    async reject(extensionId: string, adminId: string, reason: string): Promise<CampaignExtension> {
         const { extension, campaign } = await this.dataSource.transaction(async (manager) => {
             const locked = await this.lockPending(manager, extensionId);
             const payerId = await this.advertiserService.resolvePayerId(locked.campaign.advertiserId);
@@ -210,12 +222,17 @@ export class CampaignExtensionService {
             locked.extension.reviewedByAdminId = adminId;
             locked.extension.reviewedAt = new Date();
             await manager.save(locked.extension);
+            await this.activity.record(manager, {
+                action: 'extension.rejected', entityType: 'extension', entityId: locked.extension.id, campaignId: locked.campaign.id, advertiserId: locked.campaign.advertiserId,
+                summary: 'Extension rejected',
+                meta: { reason: reason.trim(), refundedPoints: locked.extension.amount, days: locked.extension.days },
+            });
             return locked;
         });
         await this.notificationService.createNotification({
             advertiserId: campaign.advertiserId,
             title: 'Extension rejected',
-            message: `The extension of ${campaign.name} was rejected and ${extension.amount.toLocaleString()} points were refunded.`,
+            message: `The extension of ${campaign.name} was rejected and ${extension.amount.toLocaleString()} points were refunded. Reason: ${reason.trim()}`,
         });
         return extension;
     }

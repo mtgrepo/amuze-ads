@@ -6,6 +6,7 @@ import { Transactions } from "src/transactions/entities/transaction.entity";
 import { DEFAULT_PAYMENT_METHOD, OFFLINE_PAYMENT_METHOD, TRANSACTION_REFERENCE } from "src/transactions/payment";
 import { PointLedger } from "./entities/point-ledger.entity";
 import type { PointLedgerType } from "./point-types";
+import { ActivityService } from "src/activity/activity.service";
 
 export interface LedgerRef {
     referenceType?: string;
@@ -21,6 +22,7 @@ export interface LedgerRef {
 @Injectable()
 export class PointsService {
     constructor(
+        private readonly activity: ActivityService,
         @InjectRepository(PointLedger)
         private ledgerRepository: Repository<PointLedger>,
         @InjectRepository(Advertiser)
@@ -34,6 +36,10 @@ export class PointsService {
         return this.dataSource.transaction(async (manager) => {
             const entry = await this.credit(manager, walletId, amount, 'purchase', { note: `Bought with ${DEFAULT_PAYMENT_METHOD}` });
             await this.recordPayment(manager, entry, DEFAULT_PAYMENT_METHOD, TRANSACTION_REFERENCE.pointPurchase);
+            await this.activity.record(manager, {
+                action: 'points.purchased', entityType: 'points', entityId: entry.id, advertiserId: walletId,
+                summary: `Bought ${amount.toLocaleString('en-US')} points`, meta: { points: amount, method: DEFAULT_PAYMENT_METHOD, balanceAfter: Number(entry.balanceAfter) },
+            });
             return { balance: entry.balanceAfter, entry };
         });
     }
@@ -46,6 +52,11 @@ export class PointsService {
             if (kind === 'paid') {
                 await this.recordPayment(manager, entry, OFFLINE_PAYMENT_METHOD, TRANSACTION_REFERENCE.adminTopUp);
             }
+            await this.activity.record(manager, {
+                action: 'points.added', entityType: 'points', entityId: entry.id, advertiserId: walletId,
+                summary: `Added ${amount.toLocaleString('en-US')} ${kind === 'bonus' ? 'bonus ' : ''}points`,
+                meta: { points: amount, kind, note, balanceAfter: Number(entry.balanceAfter) },
+            });
             return { balance: entry.balanceAfter, entry };
         });
     }

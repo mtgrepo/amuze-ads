@@ -4,11 +4,13 @@ import { AdSet } from "./entities/ad-sets.entity";
 import { Repository } from "typeorm";
 import { CreateAdSetsDTO } from "./dto/create-ad-sets.dto";
 import { UpdateAdSetsDTO } from "./dto/update-ad-sets.dto";
+import { ActivityService } from "src/activity/activity.service";
 
 @Injectable()
 export class AdSetsService {
 
     constructor(
+        private readonly activity: ActivityService,
         @InjectRepository(AdSet)
         private adSetRepository: Repository<AdSet>,
     ) {}
@@ -49,8 +51,14 @@ export class AdSetsService {
             if(!adSet) {
                 throw new Error('Ad set not found');
             }
+            const before = { ...adSet };
             Object.assign(adSet, updateData);
-            return await this.adSetRepository.save(adSet);
+            return await this.activity.withHistory((manager) => manager.save(adSet), (saved) => {
+                const changes = this.activity.diff(before, saved, ['ageMin', 'ageMax', 'gender']);
+                return Object.keys(changes).length ? {
+                    action: 'ad.audience_changed', entityType: 'ad_set', entityId: saved.id, campaignId: saved.campaignId, summary: 'Audience changed', changes,
+                } : null;
+            });
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
@@ -62,7 +70,10 @@ export class AdSetsService {
             if(!adSet) {
                 throw new Error('Ad set not found');
             }
-            return await this.adSetRepository.remove(adSet);
+            const { id: adSetId, campaignId } = adSet;
+            return await this.activity.withHistory((manager) => manager.remove(adSet), () => ({
+                action: 'ad_set.deleted', entityType: 'ad_set', entityId: adSetId, campaignId, summary: 'Ad set deleted',
+            }));
         } catch (error) {   
             throw new NotAcceptableException(error.message);
         }

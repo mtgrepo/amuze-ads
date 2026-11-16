@@ -6,6 +6,7 @@ import { CurrentUser } from "src/auth/current-user.decorator";
 import type { CurrentUserPayload } from "src/auth/current-user.decorator";
 import { CampaignExtensionService } from "./campaign-extension.service";
 import { CreateCampaignExtensionDto } from "./dto/create-campaign-extension.dto";
+import { RejectDto } from "src/common/dto/reject.dto";
 
 /** Owners, their agency and admins can quote, request and list; only admins approve or reject. */
 @UseGuards(JwtAuthGuard)
@@ -55,7 +56,7 @@ export class CampaignExtensionController {
     @UseGuards(RolesGuard)
     @Roles('admin')
     @Post(':id/reject')
-    async reject(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: CurrentUserPayload) {
-        return { data: await this.extensionService.reject(id, user.id), message: 'Extension rejected and refunded' };
+    async reject(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: CurrentUserPayload, @Body() dto: RejectDto) {
+        return { data: await this.extensionService.reject(id, user.id, dto.reason), message: 'Extension rejected and refunded' };
     }
 }

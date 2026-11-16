@@ -4,17 +4,22 @@ import { Repository } from "typeorm";
 import { SystemConfig } from "./entities/system-config.entity";
 import { CreateSystemConfigDTO } from "./dto/create-system-config.dto";
 import { UpdateSystemConfigDTO } from "./dto/update-system-config.dto";
+import { ActivityService } from "src/activity/activity.service";
 
 @Injectable()
 export class SystemConfigsService {
     constructor(
         @InjectRepository(SystemConfig)
-        private systemConfigRepository: Repository<SystemConfig>
+        private systemConfigRepository: Repository<SystemConfig>,
+        private readonly activity: ActivityService,
     ) {}
 
     async create(createDto: CreateSystemConfigDTO): Promise<SystemConfig> {
         const config = this.systemConfigRepository.create(createDto);
-        return await this.systemConfigRepository.save(config);
+        return await this.activity.withHistory((manager) => manager.save(config), (saved) => ({
+            action: 'config.created', entityType: 'system_config', entityId: saved.id,
+            summary: `Added setting ${saved.category}.${saved.configKey}`, meta: { value: saved.configValue },
+        }));
     }
 
     async getAll(): Promise<SystemConfig[]> {
@@ -45,8 +50,15 @@ export class SystemConfigsService {
         if (!config) {
             throw new NotFoundException(`Config with id '${id}' not found`);
         }
+        const before = { ...config };
         Object.assign(config, updateDto);
-        return await this.systemConfigRepository.save(config);
+        return await this.activity.withHistory((manager) => manager.save(config), (saved) => {
+            const changes = this.activity.diff(before, saved, ['category', 'configKey', 'configValue', 'description']);
+            return Object.keys(changes).length ? {
+                action: 'config.updated', entityType: 'system_config', entityId: saved.id,
+                summary: `Changed setting ${saved.category}.${saved.configKey}`, changes,
+            } : null;
+        });
     }
 
     async setActiveStatus(id: string, isActive: boolean): Promise<SystemConfig> {
@@ -55,6 +67,9 @@ export class SystemConfigsService {
             throw new NotFoundException(`Config with id '${id}' not found`);
         }
         config.isActive = isActive;
-        return await this.systemConfigRepository.save(config);
+        return await this.activity.withHistory((manager) => manager.save(config), (saved) => ({
+            action: isActive ? 'config.activated' : 'config.deactivated', entityType: 'system_config', entityId: saved.id,
+            summary: `${isActive ? 'Turned on' : 'Turned off'} setting ${saved.category}.${saved.configKey}`,
+        }));
     }
 }

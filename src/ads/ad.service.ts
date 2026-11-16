@@ -6,6 +6,7 @@ import { AdSet } from "src/ad-sets/entities/ad-sets.entity";
 import { UpdateAdSetsDTO } from "src/ad-sets/dto/update-ad-sets.dto";
 import { CreateAdDto } from "./dto/create-ad.dto";
 import { CampaignService } from "src/campaigns/campaign.service";
+import { ActivityService } from "src/activity/activity.service";
 
 @Injectable()
 export class AdService {
@@ -14,7 +15,8 @@ export class AdService {
         private adRepository: Repository<Ad>,
         @InjectRepository(AdSet)
         private adSetRepository: Repository<AdSet>,
-        private readonly campaignService: CampaignService
+        private readonly campaignService: CampaignService,
+        private readonly activity: ActivityService
     ) {}
 
     async createAd(dto: CreateAdDto): Promise<Ad> {
@@ -76,8 +78,15 @@ export class AdService {
     async updateAd(id: string, dto: UpdateAdSetsDTO): Promise<Ad> {
         try {
             const ad = await this.findAdById(id);
+            const before = { ...ad.adSet };
             Object.assign(ad.adSet, dto);
-            await this.adSetRepository.save(ad.adSet);
+            await this.activity.withHistory((manager) => manager.save(ad.adSet), (saved) => {
+                const changes = this.activity.diff(before, saved, ['ageMin', 'ageMax', 'gender']);
+                return Object.keys(changes).length ? {
+                    action: 'ad.audience_changed', entityType: 'ad', entityId: ad.id, campaignId: saved.campaignId,
+                    advertiserId: ad.adSet.campaign?.advertiserId ?? null, summary: 'Audience changed', changes,
+                } : null;
+            });
             return await this.findAdById(id);
         } catch (error) {
             if (error instanceof NotFoundException) throw error;
@@ -98,7 +107,7 @@ export class AdService {
         return this.findAdById(id);
     }
 
-    async rejectAd(id: string): Promise<Ad> {
+    async rejectAd(id: string, reason: string): Promise<Ad> {
         const ad = await this.findAdById(id);
         if (ad.status !== 'pending') {
             throw new NotAcceptableException('Only pending ads can be rejected');
@@ -106,15 +115,15 @@ export class AdService {
         if (ad.adSet?.campaign?.status === 'draft') {
             throw new NotAcceptableException('This ad has not been paid for yet');
         }
-        await this.campaignService.rejectCampaign(ad.adSet.campaignId);
+        await this.campaignService.rejectCampaign(ad.adSet.campaignId, reason);
         return this.findAdById(id);
     }
 
-    async updateStatus(id: string, status: string): Promise<Ad> {
+    async updateStatus(id: string, status: string, reason?: string): Promise<Ad> {
         try {
             // The campaign's status change moves this ad with it in one transaction, and notifies after it commits.
             const ad = await this.findAdById(id);
-            await this.campaignService.changeCampaignStatus(ad.adSet.campaignId, status);
+            await this.campaignService.changeCampaignStatus(ad.adSet.campaignId, status, undefined, reason);
             return await this.findAdById(id);
         } catch (error) {
             if (error instanceof NotFoundException) throw error;

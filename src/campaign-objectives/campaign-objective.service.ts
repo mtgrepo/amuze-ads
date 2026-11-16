@@ -7,6 +7,7 @@ import { AdvertiserService } from "src/advertisers/advertiser.service";
 import { SystemConfigsService } from "src/system-configs/system-configs.service";
 import type { CurrentUserPayload } from "src/auth/current-user.decorator";
 import { CampaignObjective, MAX_OBJECTIVE_TARGET, OBJECTIVE_TYPES, type ObjectiveType } from "./entities/campaign-objective.entity";
+import { ActivityService } from "src/activity/activity.service";
 
 /** system_configs category holding one price row per objective type. */
 export const OBJECTIVE_PRICING_CATEGORY = 'objective_pricing';
@@ -43,6 +44,7 @@ const isPositiveInt = (value: unknown): value is number => Number.isInteger(valu
 @Injectable()
 export class CampaignObjectiveService {
     constructor(
+        private readonly activity: ActivityService,
         private readonly systemConfigsService: SystemConfigsService,
         private readonly advertiserService: AdvertiserService,
         @InjectDataSource()
@@ -186,7 +188,22 @@ export class CampaignObjectiveService {
                 .where('adSet.campaignId = :campaignId', { campaignId })
                 .getOne();
             const priced = await this.priceObjectives(inputs, ad?.adCreative?.assetType ?? '');
+            const before = await manager.find(CampaignObjective, { where: { campaignId } });
+            const previousCost = Number(campaign.objectiveCost ?? 0);
             const objectives = await this.replaceForCampaign(manager, campaign, priced);
+            // e.g. { click: { from: 100, to: 200 }, objectiveCost: { from: 2000, to: 4000 } }
+            const targets = (rows: { objectiveType: string; targetCount: number }[]) => Object.fromEntries(rows.map((o) => [o.objectiveType, Number(o.targetCount)]));
+            const changes = this.activity.diff(
+                { ...targets(before), objectiveCost: previousCost },
+                { ...targets(objectives), objectiveCost: Number(campaign.objectiveCost ?? 0) },
+                [...new Set([...before, ...objectives].map((o) => o.objectiveType)), 'objectiveCost'],
+            );
+            if (Object.keys(changes).length) {
+                await this.activity.record(manager, {
+                    action: 'campaign.objectives_changed', entityType: 'campaign', entityId: campaignId, campaignId, advertiserId: campaign.advertiserId,
+                    summary: 'Objectives changed', changes,
+                });
+            }
             return {
                 objectives,
                 planCost: Number(campaign.planCost),
