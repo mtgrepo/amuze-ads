@@ -13,7 +13,8 @@ export class MailService {
     private readonly transporter: Transporter | null;
 
     constructor(private readonly config: ConfigService) {
-        const host = config.get<string>('SMTP_HOST');
+        // Only the server name is wanted; "https://mail.example.com/" is a common slip, so tidy it.
+        const host = config.get<string>('SMTP_HOST')?.trim().replace(/^[a-z]+:\/\//i, '').replace(/[/:].*$/, '');
         this.transporter = host
             ? createTransport({
                 host,
@@ -32,12 +33,18 @@ export class MailService {
             this.logger.warn(`SMTP_HOST is not set, so this email was not sent. To: ${to} · ${subject}\n${text}`);
             return;
         }
-        await this.transporter.sendMail({
-            from: this.config.get<string>('MAIL_FROM') ?? this.config.get<string>('SMTP_USER'),
-            to,
-            subject,
-            text,
-            html,
-        });
+        try {
+            await this.transporter.sendMail({
+                from: this.config.get<string>('MAIL_FROM') ?? this.config.get<string>('SMTP_USER'),
+                to,
+                subject,
+                text,
+                html,
+            });
+        } catch (error) {
+            // The mail server's own error goes to the log, not to the customer.
+            this.logger.error(`Email to ${to} failed: ${error instanceof Error ? error.message : error}`);
+            throw new ServiceUnavailableException("We couldn't send the email right now. Please try again in a few minutes.");
+        }
     }
 }
