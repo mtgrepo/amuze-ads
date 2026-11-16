@@ -114,7 +114,8 @@ export class ActivityService {
             // An agency's activity includes everything about its clients.
             qb.andWhere('log.advertiserId IN (SELECT id FROM advertisers WHERE id = :advertiserId OR agency_id = :advertiserId)', { advertiserId: filters.advertiserId });
         }
-        if (filters.entityType) qb.andWhere('log.entityType = :entityType', { entityType: filters.entityType });
+        // One type, or several comma-separated (the Ads filter is campaign,ad,ad_set,extension).
+        if (filters.entityType) qb.andWhere('log.entityType IN (:...entityTypes)', { entityTypes: filters.entityType.split(',').map((t) => t.trim()).filter(Boolean) });
         if (filters.entityId) qb.andWhere('log.entityId = :entityId', { entityId: filters.entityId });
         if (filters.action) qb.andWhere('(log.action = :action OR log.action LIKE :prefix)', { action: filters.action, prefix: `${filters.action}.%` });
         if (filters.actorType) qb.andWhere('log.actorType = :actorType', { actorType: filters.actorType });
