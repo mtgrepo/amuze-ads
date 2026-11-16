@@ -325,7 +325,10 @@ export class AdvertiserService {
             if (updateData.phone !== undefined) editable.phone = updateData.phone;
             if (updateData.status !== undefined) editable.status = updateData.status;
             if (updateData.verified !== undefined) editable.verified = updateData.verified;
-            if (updateData.password) editable.password = await hashPassword(updateData.password);
+            if (updateData.password) {
+                editable.password = await hashPassword(updateData.password);
+                editable.passwordChangedAt = new Date();
+            }
             const before = { ...advertiser };
             Object.assign(advertiser, editable);
             return await this.activity.withHistory((manager) => manager.save(advertiser), (saved) => {

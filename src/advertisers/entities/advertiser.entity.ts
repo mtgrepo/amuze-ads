@@ -62,6 +62,10 @@ export class Advertiser {
   @OneToMany(() => Advertiser, (client) => client.agency)
   clients: Advertiser[];
 
+  /** Sign-ins issued before this stop working, so changing or resetting a password signs out every device. */
+  @Column({ type: 'timestamptz', name: 'password_changed_at', nullable: true })
+  passwordChangedAt: Date | null;
+
   @Column({ type: 'timestamp', name: 'last_login', nullable: true })
   lastLogin: Date;
 
