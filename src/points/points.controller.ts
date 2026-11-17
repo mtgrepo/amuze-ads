@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "src/auth/jwt-auth.guard";
 import { RolesGuard } from "src/auth/roles.guard";
 import { Roles } from "src/auth/roles.decorator";
@@ -31,6 +31,24 @@ export class PointsController {
         return {
             data: wallet,
             message: 'Wallet retrieved successfully',
+        };
+    }
+
+    @Roles('advertiser', 'agency')
+    @Get('me/entries/:id')
+    async myEntry(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: CurrentUserPayload) {
+        return {
+            data: await this.pointsService.getEntryDetail(id, user.id),
+            message: 'Transaction retrieved successfully',
+        };
+    }
+
+    @Roles('admin')
+    @Get('ledger/:id')
+    async ledgerEntry(@Param('id', ParseUUIDPipe) id: string) {
+        return {
+            data: await this.pointsService.getEntryDetail(id),
+            message: 'Transaction retrieved successfully',
         };
     }
 
