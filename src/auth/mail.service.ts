@@ -21,6 +21,9 @@ export class MailService {
                 port: Number(config.get('SMTP_PORT') ?? 587),
                 secure: config.get('SMTP_SECURE') === 'true',
                 auth: config.get('SMTP_USER') ? { user: config.get<string>('SMTP_USER'), pass: config.get<string>('SMTP_PASS') } : undefined,
+                tls: {
+                    rejectUnauthorized: false,
+                }
             })
             : null;
     }
