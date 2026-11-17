@@ -154,6 +154,7 @@ export class DailyAdStatsController {
         @Query('adId', new ParseUUIDPipe({ optional: true })) adId?: string,
     ) {
         const scope = await this.advertiserService.resolveListScope(user, advertiserId);
+        if (adId) await this.assertCanViewAd(user, adId);
         const result = await this.dailyAdStatsService.getDemographics(fromDate, toDate, scope, adId);
         return {
             data: result,
