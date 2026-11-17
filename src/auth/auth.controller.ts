@@ -61,12 +61,12 @@ export class AuthController {
     return { data: result, message: 'Password changed' };
   }
 
-  /** "Forgot password?": emails a reset link if the account exists. The answer is the same either way. */
+  /** "Forgot password?": emails a reset link. Unknown emails get a 404. */
   @HttpCode(200)
   @Post('advertiser/forgot-password')
   async forgotPassword(@Body() dto: ForgotPasswordDTO) {
     await this.passwordService.requestReset(dto.email);
-    return { message: "If there's an account with that email, we've sent a link to reset the password." };
+    return { message: "We've sent a link to reset your password." };
   }
 
   /** Sets a new password from the emailed link. */

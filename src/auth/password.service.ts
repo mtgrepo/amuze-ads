@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, HttpException, HttpStatus, Injectable, Logger, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { InjectDataSource } from "@nestjs/typeorm";
@@ -56,21 +56,26 @@ export class PasswordService {
         });
     }
 
-    /**
-     * Emails a one-time reset link if the address belongs to an account that signs in. Always looks the same to
-     * the caller, so the form can't be used to find out which emails have accounts.
-     */
+    /** Emails a one-time reset link. The email must belong to an account that signs in. */
     async requestReset(email: string): Promise<void> {
-        const advertiser = await this.dataSource.getRepository(Advertiser).findOne({ where: { email: email.trim().toLowerCase() } });
+        // Accounts made by an admin may have capitals in the email, so match without case.
+        const advertiser = await this.dataSource.getRepository(Advertiser).createQueryBuilder('a')
+            .where('LOWER(a.email) = :email', { email: email.trim().toLowerCase() })
+            .getOne();
+        if (!advertiser || !advertiser.email) {
+            throw new NotFoundException("There's no account with this email.");
+        }
         // Agency clients never sign in, so they have nothing to reset.
-        if (!advertiser || !advertiser.password || advertiser.agencyId || !advertiser.email) return;
+        if (advertiser.agencyId || !advertiser.password) {
+            throw new BadRequestException("This account doesn't sign in. Ask the agency that manages it.");
+        }
 
         const recent = await this.dataSource.getRepository(PasswordResetToken).count({
             where: { advertiserId: advertiser.id, createdAt: MoreThan(new Date(Date.now() - 60 * 60_000)) },
         });
         if (recent >= MAX_RESET_EMAILS_PER_HOUR) {
             this.logger.warn(`Reset email limit reached for advertiser ${advertiser.id}`);
-            return;
+            throw new HttpException('Too many reset emails for this account. Please try again in an hour.', HttpStatus.TOO_MANY_REQUESTS);
         }
 
         const token = randomBytes(32).toString('base64url');
