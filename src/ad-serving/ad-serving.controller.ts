@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Get, Logger, NotFoundException, 
 import { AD_TYPES, type AdType } from "src/ads/ad-formats";
 import { ApiKeyGuard } from "./api-key.guard";
 import { AdServingService } from "./ad-serving.service";
+import { AdDisplayRulesService } from "src/ad-display-rules/ad-display-rules.service";
 import { TrackEventDto } from "./dto/track-event.dto";
 
 /** "Home Feed", "home-feed" and "HOME_FEED" all mean home_feed. Used for placements and ad types. */
@@ -25,7 +26,22 @@ function normalizeGender(value?: string): string | undefined {
 export class AdServingController {
     private readonly logger = new Logger(AdServingController.name);
 
-    constructor(private readonly adServingService: AdServingService) {}
+    constructor(
+        private readonly adServingService: AdServingService,
+        private readonly displayRules: AdDisplayRulesService,
+    ) {}
+
+    /**
+     * When to show each ad slot and how often. The app loads this at launch and applies it itself; cooldowns and
+     * item counts live in the app and start again when the app restarts. Slots that are switched off are left out.
+     */
+    @Get('rules')
+    async rules() {
+        return {
+            data: { cooldownResets: 'app_start', rules: await this.displayRules.forApp() },
+            message: 'Display rules',
+        };
+    }
 
     /**
      * One ad for the slot the app is about to fill. Several ad types share a placement (home_feed has a banner,
