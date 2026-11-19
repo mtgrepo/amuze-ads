@@ -9,6 +9,8 @@ import { todayInBusinessTz } from "src/ad-packages/package-pricing";
 
 export interface ServingCriteria {
   placement: string;
+  /** Omitted only by older app versions; then any type in the placement can come back. */
+  adType?: string;
   age?: number;
   gender?: string;
 }
@@ -53,6 +55,9 @@ export class AdServingService {
       // Paid ads go active straight away, but only run between their start and end dates.
       .andWhere('campaign.startDate <= :today AND campaign.endDate >= :today', { today: todayInBusinessTz() });
 
+    if (criteria.adType) {
+      qb = qb.andWhere('ad.adType = :adType', { adType: criteria.adType });
+    }
     if (criteria.age !== undefined) {
       qb = qb.andWhere('adSet.ageMin <= :age AND adSet.ageMax >= :age', { age: criteria.age });
     }
