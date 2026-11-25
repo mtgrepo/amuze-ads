@@ -22,6 +22,8 @@ import { CurrentUser } from 'src/auth/current-user.decorator';
 import type { CurrentUserPayload } from 'src/auth/current-user.decorator';
 import { MinioService } from 'src/minio/minio.service';
 import { AdvertiserService } from 'src/advertisers/advertiser.service';
+import { VideoOptimizerService } from 'src/media/video-optimizer.service';
+import { MAX_CREATIVE_UPLOAD } from 'src/media/upload-limits';
 
 @UseGuards(JwtAuthGuard)
 @Controller('ad-creatives')
@@ -30,10 +32,11 @@ export class AdCreativeController {
     private readonly adCreativeService: AdCreativeService,
     private readonly minioService: MinioService,
     private readonly advertiserService: AdvertiserService,
+    private readonly videos: VideoOptimizerService,
   ) {}
 
   @Post()
-  @UseInterceptors(FileInterceptor('asset', { storage: memoryStorage() }))
+  @UseInterceptors(FileInterceptor('asset', { storage: memoryStorage(), limits: MAX_CREATIVE_UPLOAD }))
   async create(
     @Body() dto: CreateAdCreativeDto,
     @UploadedFile() file: Express.Multer.File,
@@ -41,7 +44,7 @@ export class AdCreativeController {
   ) {
     const advertiserId = await this.advertiserService.resolveTargetAdvertiserId(user, dto.advertiserId);
     const folder = `ad-creatives/${advertiserId}`;
-    const assetPath = await this.minioService.upload(file, folder);
+    const assetPath = await this.minioService.upload(await this.videos.prepareUpload(file), folder);
 
     const creative = await this.adCreativeService.create({ ...dto, advertiserId }, assetPath);
 
@@ -72,7 +75,7 @@ export class AdCreativeController {
 
   @UseGuards(AdCreativeOwnershipGuard)
   @Patch(':id')
-  @UseInterceptors(FileInterceptor('asset', { storage: memoryStorage() }))
+  @UseInterceptors(FileInterceptor('asset', { storage: memoryStorage(), limits: MAX_CREATIVE_UPLOAD }))
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateAdCreativeDto,
@@ -81,8 +84,10 @@ export class AdCreativeController {
     let assetPath: string | undefined;
     if (file) {
       const existing = await this.adCreativeService.findOne(id);
+      // Encode first, so a video that can't be processed leaves the current asset in place.
+      const upload = await this.videos.prepareUpload(file);
       await this.minioService.delete(existing.asset);
-      assetPath = await this.minioService.upload(file, `ad-creatives/${existing.advertiserId}`);
+      assetPath = await this.minioService.upload(upload, `ad-creatives/${existing.advertiserId}`);
     }
 
     const creative = await this.adCreativeService.update(id, dto, assetPath);

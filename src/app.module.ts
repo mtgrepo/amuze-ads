@@ -26,6 +26,7 @@ import { CampaignObjectiveModule } from './campaign-objectives/campaign-objectiv
 import { PresignedUrlInterceptor } from './common/interceptors/presigned-url.interceptor';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ClsModule } from 'nestjs-cls';
+import { MediaModule } from './media/media.module';
 import { ActivityModule } from './activity/activity.module';
 
 @Module({
@@ -52,6 +53,7 @@ import { ActivityModule } from './activity/activity.module';
       })
     }),
     MinioModule,
+    MediaModule,
     AdvertiserModule,
     AdvertiserProfilesModule,
     AdminUserModule,

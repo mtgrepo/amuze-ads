@@ -1,10 +1,11 @@
-import { BadRequestException, Injectable, NotAcceptableException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotAcceptableException, UnprocessableEntityException } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { Campaign } from "./entities/campaign.entity";
 import { DataSource, EntityManager, In, Repository } from "typeorm";
 import { NotificationService } from "../notifications/notification.service";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { MinioService } from "src/minio/minio.service";
+import { VideoOptimizerService } from "src/media/video-optimizer.service";
 import { AdCreative } from "src/ad-creatives/entities/ad-creative.entity";
 import { AdSet } from "src/ad-sets/entities/ad-sets.entity";
 import { Ad } from "src/ads/entities/ad.entity";
@@ -61,6 +62,7 @@ export class CampaignService {
         private readonly packageService: AdPackageService,
         private readonly objectiveService: CampaignObjectiveService,
         private readonly activity: ActivityService,
+        private readonly videos: VideoOptimizerService,
         @InjectDataSource()
         private readonly dataSource: DataSource,
     ) {}
@@ -409,7 +411,7 @@ export class CampaignService {
         assertStartNotPast(input.startDate);
         const pricedObjectives = await this.objectiveService.priceObjectives(input.objectives, input.assetType);
         try {
-            const assetPath = await this.minioService.upload(file, `ad-creatives/${input.advertiserId}`);
+            const assetPath = await this.minioService.upload(await this.videos.prepareUpload(file), `ad-creatives/${input.advertiserId}`);
 
             return await this.dataSource.transaction(async (manager) => {
                 const creative = manager.create(AdCreative, {
@@ -469,7 +471,8 @@ export class CampaignService {
                 return { campaign: savedCampaign, adSet: savedAdSet, ad: savedAd, adCreative: savedCreative };
             });
         } catch (error) {
-            if (error instanceof BadRequestException) throw error;
+            // A video that couldn't be processed keeps its 422.
+            if (error instanceof BadRequestException || error instanceof UnprocessableEntityException) throw error;
             throw new NotAcceptableException(error.message);
         }
     }
