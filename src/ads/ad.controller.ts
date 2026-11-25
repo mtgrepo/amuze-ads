@@ -10,6 +10,7 @@ import type { CurrentUserPayload } from "src/auth/current-user.decorator";
 import { CreateAdDto } from "./dto/create-ad.dto";
 import { UpdateAdSetsDTO } from "src/ad-sets/dto/update-ad-sets.dto";
 import { AdvertiserService } from "src/advertisers/advertiser.service";
+import { RejectDto } from "src/common/dto/reject.dto";
 
 @UseGuards(JwtAuthGuard)
 @Controller('ads')
@@ -59,7 +60,7 @@ export class AdController {
 
     @UseGuards(AdOwnershipGuard)
     @Patch(':id/status')
-    async updateStatus(@Param('id') id: string, @Body('status') status: string, @CurrentUser() user: CurrentUserPayload) {
+    async updateStatus(@Param('id') id: string, @Body('status') status: string, @CurrentUser() user: CurrentUserPayload, @Body('reason') reason?: string) {
         if (status === 'paused') {
             throw new BadRequestException('Pausing ads is not supported yet');
         }
@@ -70,7 +71,7 @@ export class AdController {
                 throw new ForbiddenException(`You cannot change an ad from "${existing.status}" to "${status}"`);
             }
         }
-        const ad = await this.adService.updateStatus(id, status);
+        const ad = await this.adService.updateStatus(id, status, reason);
         return {
             data: ad,
             message: "Ad status updated successfully"
@@ -91,8 +92,8 @@ export class AdController {
     @UseGuards(RolesGuard)
     @Roles('admin')
     @Post(':id/reject')
-    async reject(@Param('id') id: string) {
-        const ad = await this.adService.rejectAd(id);
+    async reject(@Param('id') id: string, @Body() dto: RejectDto) {
+        const ad = await this.adService.rejectAd(id, dto.reason);
         return {
             data: ad,
             message: "Ad rejected successfully"

@@ -5,9 +5,12 @@ import { Ad } from "src/ads/entities/ad.entity";
 import { DailyAdStatsService } from "src/daily-ad-stats/daily-ad-stats.service";
 import { ObjectivePacingService } from "src/campaign-objectives/objective-pacing.service";
 import type { TrackEvent } from "./dto/track-event.dto";
+import { todayInBusinessTz } from "src/ad-packages/package-pricing";
 
 export interface ServingCriteria {
   placement: string;
+  /** Omitted only by older app versions; then any type in the placement can come back. */
+  adType?: string;
   age?: number;
   gender?: string;
 }
@@ -48,8 +51,13 @@ export class AdServingService {
       .innerJoin('adSet.campaign', 'campaign')
       .where('ad.status = :adStatus', { adStatus: 'active' })
       .andWhere('campaign.status = :campaignStatus', { campaignStatus: 'active' })
-      .andWhere('ad.placementKey = :placement', { placement: criteria.placement });
+      .andWhere('ad.placementKey = :placement', { placement: criteria.placement })
+      // Paid ads go active straight away, but only run between their start and end dates.
+      .andWhere('campaign.startDate <= :today AND campaign.endDate >= :today', { today: todayInBusinessTz() });
 
+    if (criteria.adType) {
+      qb = qb.andWhere('ad.adType = :adType', { adType: criteria.adType });
+    }
     if (criteria.age !== undefined) {
       qb = qb.andWhere('adSet.ageMin <= :age AND adSet.ageMax >= :age', { age: criteria.age });
     }
@@ -74,7 +82,7 @@ export class AdServingService {
     };
   }
 
-  async trackEvent(adId: string, event: TrackEvent, userId: string): Promise<void> {
-    await this.dailyAdStatsService.trackEvent(adId, event, userId);
+  async trackEvent(adId: string, event: TrackEvent, userId: string, age?: unknown, gender?: unknown): Promise<void> {
+    await this.dailyAdStatsService.trackEvent(adId, event, userId, age, gender);
   }
 }

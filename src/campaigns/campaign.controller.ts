@@ -14,6 +14,8 @@ import { Roles } from "../auth/roles.decorator";
 import { CAMPAIGN_SELF_SERVICE_TRANSITIONS } from "./campaign-status";
 import { AdvertiserService } from "src/advertisers/advertiser.service";
 import type { ObjectiveInput } from "src/campaign-objectives/campaign-objective.service";
+import { RejectDto } from "src/common/dto/reject.dto";
+import { MAX_CREATIVE_UPLOAD } from "src/media/upload-limits";
 
 @UseGuards(JwtAuthGuard)
 @Controller('campaigns')
@@ -106,8 +108,8 @@ export class CampaignController {
     @UseGuards(RolesGuard)
     @Roles('admin')
     @Post(':id/reject')
-    async reject(@Param('id') id: string) {
-        const campaign = await this.campaignService.rejectCampaign(id);
+    async reject(@Param('id') id: string, @Body() dto: RejectDto) {
+        const campaign = await this.campaignService.rejectCampaign(id, dto.reason);
         return {
             data: campaign,
             message: 'Campaign rejected successfully',
@@ -135,7 +137,7 @@ export class CampaignController {
     }
 
     @Post('full')
-    @UseInterceptors(FileInterceptor('asset', { storage: memoryStorage() }))
+    @UseInterceptors(FileInterceptor('asset', { storage: memoryStorage(), limits: MAX_CREATIVE_UPLOAD }))
     async createFullCampaign(
         @Body() dto: CreateFullCampaignDto,
         @UploadedFile() file: Express.Multer.File,

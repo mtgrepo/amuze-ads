@@ -1,7 +1,8 @@
 /**
  * Which placements each ad type can run in, and which asset types each placement takes.
  * Keep in sync with ad_formats.ts in both portals. The AMUZE app requests ads by these placement keys.
- * A placement key can appear under several ad types (e.g. home_feed is a banner slot and an interstitial).
+ * A placement key can appear under several ad types (home_feed is a banner, interstitial and native slot), so the
+ * app asks for ads by type and placement together.
  */
 export const AD_FORMATS = {
     banner: {
@@ -19,10 +20,12 @@ export const AD_FORMATS = {
         free_content_episodes: ['video'],
     },
     native: {
-        sponsored_placement: ['image', 'video'],
+        home_feed: ['image', 'video'],
+        explore_feed: ['image', 'video'],
     },
     pop_ups: {
         app_open: ['image'],
+        page_navigation: ['image'],
     },
 } as const satisfies Record<string, Record<string, readonly ('image' | 'video')[]>>;
 

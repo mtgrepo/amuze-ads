@@ -25,10 +25,15 @@ import { AdPackageModule } from './ad-packages/ad-package.module';
 import { CampaignObjectiveModule } from './campaign-objectives/campaign-objective.module';
 import { PresignedUrlInterceptor } from './common/interceptors/presigned-url.interceptor';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ClsModule } from 'nestjs-cls';
+import { MediaModule } from './media/media.module';
+import { ActivityModule } from './activity/activity.module';
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
+    // A per-request store, so the activity log knows who is acting (see ActorInterceptor).
+    ClsModule.forRoot({ global: true, middleware: { mount: true } }),
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
@@ -48,6 +53,7 @@ import { ScheduleModule } from '@nestjs/schedule';
       })
     }),
     MinioModule,
+    MediaModule,
     AdvertiserModule,
     AdvertiserProfilesModule,
     AdminUserModule,
@@ -66,6 +72,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     CampaignExtensionModule,
     AdPackageModule,
     CampaignObjectiveModule,
+    ActivityModule,
   ],
   controllers: [AppController],
   providers: [

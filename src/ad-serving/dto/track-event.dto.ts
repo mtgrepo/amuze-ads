@@ -1,4 +1,4 @@
-import { IsIn, IsNotEmpty, IsString, IsUUID, MaxLength } from "class-validator";
+import { IsIn, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength } from "class-validator";
 
 /** view = shown, click = tapped, watch = video playback started, complete = video reached the end. */
 export const TRACK_EVENTS = ['view', 'click', 'watch', 'complete'] as const;
@@ -16,4 +16,14 @@ export class TrackEventDto {
     @IsNotEmpty()
     @MaxLength(100)
     userId: string;
+
+    /** The viewer's age in years (e.g. 18), for the age breakdown. Optional; grouped in reports. */
+    @IsOptional()
+    age?: number | string | null;
+
+    /** The viewer's gender (male/female, any case, or M/F). Optional; anything else counts as unknown. */
+    @IsOptional()
+    @IsString()
+    @MaxLength(20)
+    gender?: string | null;
 }

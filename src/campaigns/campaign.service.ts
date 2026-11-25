@@ -1,10 +1,11 @@
-import { BadRequestException, Injectable, NotAcceptableException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotAcceptableException, UnprocessableEntityException } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { Campaign } from "./entities/campaign.entity";
 import { DataSource, EntityManager, In, Repository } from "typeorm";
 import { NotificationService } from "../notifications/notification.service";
 import { Cron, CronExpression } from "@nestjs/schedule";
 import { MinioService } from "src/minio/minio.service";
+import { VideoOptimizerService } from "src/media/video-optimizer.service";
 import { AdCreative } from "src/ad-creatives/entities/ad-creative.entity";
 import { AdSet } from "src/ad-sets/entities/ad-sets.entity";
 import { Ad } from "src/ads/entities/ad.entity";
@@ -14,6 +15,10 @@ import { isAllowedFormat } from "src/ads/ad-formats";
 import { AdPackageService } from "src/ad-packages/ad-package.service";
 import { applyPackage, assertStartNotPast, dateOnly } from "src/ad-packages/package-pricing";
 import { CampaignObjectiveService, type ObjectiveInput } from "src/campaign-objectives/campaign-objective.service";
+import { ActivityService } from "src/activity/activity.service";
+
+// What a budget edit can change; each is recorded in the history as before → after.
+const BUDGET_FIELDS = ['name', 'packageName', 'packageQuantity', 'startDate', 'endDate', 'planCost', 'totalBudget'];
 
 // Statuses an ad can only be in once it's fully paid.
 const PAID_STATUSES = ['pending', 'active', 'paused'];
@@ -56,6 +61,8 @@ export class CampaignService {
         private readonly pointsService: PointsService,
         private readonly packageService: AdPackageService,
         private readonly objectiveService: CampaignObjectiveService,
+        private readonly activity: ActivityService,
+        private readonly videos: VideoOptimizerService,
         @InjectDataSource()
         private readonly dataSource: DataSource,
     ) {}
@@ -75,7 +82,11 @@ export class CampaignService {
             });
             applyPackage(campaign, pkg, Number(data.packageQuantity), data.startDate);
             assertStartNotPast(data.startDate);
-            return await this.campaignRepository.save(campaign);
+            return await this.activity.withHistory((manager) => manager.save(campaign), (saved) => ({
+                action: 'campaign.created', entityType: 'campaign', entityId: saved.id, campaignId: saved.id, advertiserId: saved.advertiserId,
+                summary: 'Created as a draft',
+                meta: { package: `${saved.packageQuantity} × ${saved.packageName}`, totalBudget: Number(saved.totalBudget) },
+            }));
         } catch (error) {
             if (error instanceof BadRequestException) throw error;
             throw new NotAcceptableException(error.message);
@@ -116,6 +127,7 @@ export class CampaignService {
                 if (!campaign) {
                     throw new BadRequestException('Campaign not found');
                 }
+                const before = { ...campaign };
                 // Only the name and the package/schedule are editable here. Status, owner and payment
                 // never change through this endpoint (status leaves draft only via payCampaign).
                 if (updateData.name !== undefined) campaign.name = updateData.name;
@@ -140,7 +152,17 @@ export class CampaignService {
                         startDate ?? dateOnly(campaign.startDate),
                     );
                 }
-                return await manager.save(campaign);
+                const saved = await manager.save(campaign);
+                const changes = this.activity.diff(before, saved, BUDGET_FIELDS);
+                if (Object.keys(changes).length) {
+                    const onlyName = Object.keys(changes).every((f) => f === 'name');
+                    await this.activity.record(manager, {
+                        action: onlyName ? 'campaign.renamed' : 'campaign.budget_changed',
+                        entityType: 'campaign', entityId: saved.id, campaignId: saved.id, advertiserId: saved.advertiserId,
+                        summary: onlyName ? 'Renamed' : 'Budget changed', changes,
+                    });
+                }
+                return saved;
             });
         } catch (error) {
             if (error instanceof BadRequestException) throw error;
@@ -181,6 +203,11 @@ export class CampaignService {
                 .where('status = :draft', { draft: 'draft' })
                 .andWhere('ad_set_id IN (SELECT id FROM ad_sets WHERE campaign_id = :campaignId)', { campaignId: campaign.id })
                 .execute();
+            await this.activity.record(manager, {
+                action: 'campaign.paid', entityType: 'campaign', entityId: campaign.id, campaignId: campaign.id, advertiserId: campaign.advertiserId,
+                summary: nextStatus === 'active' ? 'Paid, and live without review' : 'Paid and sent for review',
+                meta: { points: Number(campaign.totalBudget) },
+            });
             return campaign;
         });
 
@@ -223,15 +250,20 @@ export class CampaignService {
                 .getMany();
 
             for (const campaign of expiredCampaigns) {
-                campaign.status = 'expired';
-                await this.campaignRepository.save(campaign);
-
-                await this.adRepository
-                    .createQueryBuilder()
-                    .update(Ad)
-                    .set({ status: 'expired' })
-                    .where('ad_set_id IN (SELECT id FROM ad_sets WHERE campaign_id = :campaignId)', { campaignId: campaign.id })
-                    .execute();
+                await this.dataSource.transaction(async (manager) => {
+                    campaign.status = 'expired';
+                    await manager.save(campaign);
+                    await manager
+                        .createQueryBuilder()
+                        .update(Ad)
+                        .set({ status: 'expired' })
+                        .where('ad_set_id IN (SELECT id FROM ad_sets WHERE campaign_id = :campaignId)', { campaignId: campaign.id })
+                        .execute();
+                    await this.activity.record(manager, {
+                        action: 'campaign.expired', entityType: 'campaign', entityId: campaign.id, campaignId: campaign.id, advertiserId: campaign.advertiserId,
+                        summary: 'Ended: its run is over',
+                    });
+                });
 
                 await this.notificationService.createNotification({
                     advertiserId: campaign.advertiserId,
@@ -249,7 +281,12 @@ export class CampaignService {
      * transaction: all of it is saved or none of it is. `expectedStatus` is checked under the row lock, so two
      * reviewers acting at once can't both approve or reject. The notification goes out only after the commit.
      */
-    async changeCampaignStatus(id: string, status: string, expectedStatus?: string): Promise<Campaign> {
+    async changeCampaignStatus(id: string, status: string, expectedStatus?: string, reason?: string): Promise<Campaign> {
+        // Advertisers are always told why their ad was rejected.
+        const rejectReason = reason?.trim();
+        if (status === 'rejected' && !rejectReason) {
+            throw new BadRequestException('Give a reason for rejecting this ad');
+        }
         try {
             const campaignData = await this.dataSource.transaction(async (manager) => {
                 const campaign = await manager.findOne(Campaign, { where: { id }, lock: { mode: 'pessimistic_write' } });
@@ -281,15 +318,27 @@ export class CampaignService {
 
                 // Points come back only when the ad never ran: rejected while under review, or sent back
                 // to draft (where it must be paid again). A delivered ad that is rejected keeps its charge.
-                if ((status === 'rejected' && previousStatus === 'pending') || status === 'draft') {
+                const refunded = (status === 'rejected' && previousStatus === 'pending') || status === 'draft';
+                if (refunded) {
                     await this.refundHeldPoints(manager, campaign, held, status === 'draft' ? `Ad returned to draft: ${campaign.name}` : `Ad rejected: ${campaign.name}`);
                 }
+
+                const approved = status === 'active' && previousStatus === 'pending';
+                await this.activity.record(manager, {
+                    action: approved ? 'campaign.approved' : status === 'rejected' ? 'campaign.rejected' : 'campaign.status_changed',
+                    entityType: 'campaign', entityId: campaign.id, campaignId: campaign.id, advertiserId: campaign.advertiserId,
+                    summary: approved ? 'Approved' : status === 'rejected' ? 'Rejected' : `Status changed from ${previousStatus} to ${status}`,
+                    changes: { status: { from: previousStatus, to: status } },
+                    meta: { ...(rejectReason ? { reason: rejectReason } : {}), ...(refunded && held > 0 ? { refundedPoints: held } : {}) },
+                });
                 return saved;
             });
             await this.notificationService.createNotification({
                 advertiserId: campaignData?.advertiserId,
                 title: "Notification about Campaign Status",
-                message: `Your Campaign has been ${status} !`
+                message: status === 'rejected' && rejectReason
+                    ? `Your Campaign has been rejected. Reason: ${rejectReason}`
+                    : `Your Campaign has been ${status} !`
             })
             return campaignData;
         } catch (error) {
@@ -309,6 +358,11 @@ export class CampaignService {
                     const held = await this.pointsService.netSpentForCampaign(manager, campaign.id);
                     await this.refundHeldPoints(manager, campaign, held, `Ad deleted before review: ${campaign.name}`);
                 }
+                // The history keeps the campaign id, so the ad's history survives its deletion.
+                await this.activity.record(manager, {
+                    action: 'campaign.deleted', entityType: 'campaign', entityId: campaign.id, campaignId: campaign.id, advertiserId: campaign.advertiserId,
+                    summary: `Deleted "${campaign.name}"`, meta: { status: campaign.status },
+                });
                 return await manager.remove(campaign);
             });
         } catch (error) {
@@ -336,10 +390,10 @@ export class CampaignService {
         }
     }
 
-    async rejectCampaign(id: string): Promise<Campaign> {
+    async rejectCampaign(id: string, reason: string): Promise<Campaign> {
         try {
             // Campaign and ads are rejected and the points refunded together.
-            return await this.changeCampaignStatus(id, 'rejected', 'pending');
+            return await this.changeCampaignStatus(id, 'rejected', 'pending', reason);
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
@@ -357,7 +411,7 @@ export class CampaignService {
         assertStartNotPast(input.startDate);
         const pricedObjectives = await this.objectiveService.priceObjectives(input.objectives, input.assetType);
         try {
-            const assetPath = await this.minioService.upload(file, `ad-creatives/${input.advertiserId}`);
+            const assetPath = await this.minioService.upload(await this.videos.prepareUpload(file), `ad-creatives/${input.advertiserId}`);
 
             return await this.dataSource.transaction(async (manager) => {
                 const creative = manager.create(AdCreative, {
@@ -408,11 +462,17 @@ export class CampaignService {
                     status: 'draft',
                 });
                 const savedAd = await manager.save(ad);
+                await this.activity.record(manager, {
+                    action: 'ad.created', entityType: 'ad', entityId: savedAd.id, campaignId: savedCampaign.id, advertiserId: input.advertiserId,
+                    summary: 'Created as a draft',
+                    meta: { package: `${savedCampaign.packageQuantity} × ${savedCampaign.packageName}`, totalBudget: Number(savedCampaign.totalBudget) },
+                });
 
                 return { campaign: savedCampaign, adSet: savedAdSet, ad: savedAd, adCreative: savedCreative };
             });
         } catch (error) {
-            if (error instanceof BadRequestException) throw error;
+            // A video that couldn't be processed keeps its 422.
+            if (error instanceof BadRequestException || error instanceof UnprocessableEntityException) throw error;
             throw new NotAcceptableException(error.message);
         }
     }

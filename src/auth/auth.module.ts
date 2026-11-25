@@ -9,11 +9,16 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { AmuzeTokenService } from './amuze-token.service';
 import { AmuzeJwtStrategy } from './amuze-jwt.strategy';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { PasswordResetToken } from './entities/password-reset-token.entity';
+import { MailService } from './mail.service';
+import { PasswordService } from './password.service';
 
 @Module({
   imports: [
     AdminUserModule,
     AdvertiserModule,
+    TypeOrmModule.forFeature([PasswordResetToken]),
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -26,7 +31,7 @@ import { AmuzeJwtStrategy } from './amuze-jwt.strategy';
       }),
     }),
   ],
-  providers: [AuthService, JwtStrategy, AmuzeTokenService, AmuzeJwtStrategy],
+  providers: [AuthService, JwtStrategy, AmuzeTokenService, AmuzeJwtStrategy, MailService, PasswordService],
   controllers: [AuthController],
 })
 export class AuthModule {}

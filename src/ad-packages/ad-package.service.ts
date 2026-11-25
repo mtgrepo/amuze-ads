@@ -4,10 +4,12 @@ import { Repository } from "typeorm";
 import { AdPackage } from "./entities/ad-package.entity";
 import { CreateAdPackageDto } from "./dto/create-ad-package.dto";
 import { UpdateAdPackageDto } from "./dto/update-ad-package.dto";
+import { ActivityService } from "src/activity/activity.service";
 
 @Injectable()
 export class AdPackageService {
     constructor(
+        private readonly activity: ActivityService,
         @InjectRepository(AdPackage)
         private readonly packageRepository: Repository<AdPackage>,
     ) {}
@@ -40,7 +42,10 @@ export class AdPackageService {
 
     async create(dto: CreateAdPackageDto): Promise<AdPackage> {
         await this.assertNameFree(dto.name);
-        return this.packageRepository.save(this.packageRepository.create({ ...dto, name: dto.name.trim() }));
+        return this.activity.withHistory((manager) => manager.save(this.packageRepository.create({ ...dto, name: dto.name.trim() })), (saved) => ({
+            action: 'package.created', entityType: 'package', entityId: saved.id, summary: `Added package ${saved.name}`,
+            meta: { durationDays: saved.durationDays, price: saved.price },
+        }));
     }
 
     /** Existing campaigns keep their own copy of the package, so edits only affect new purchases. */
@@ -50,14 +55,21 @@ export class AdPackageService {
             dto.name = dto.name.trim();
             await this.assertNameFree(dto.name, id);
         }
+        const before = { ...pkg };
         Object.assign(pkg, dto);
-        return this.packageRepository.save(pkg);
+        return this.activity.withHistory((manager) => manager.save(pkg), (saved) => {
+            const changes = this.activity.diff(before, saved, ['name', 'durationDays', 'price', 'description', 'sortOrder']);
+            return Object.keys(changes).length ? { action: 'package.updated', entityType: 'package', entityId: saved.id, summary: `Changed package ${saved.name}`, changes } : null;
+        });
     }
 
     async setActive(id: string, isActive: boolean): Promise<AdPackage> {
         const pkg = await this.findById(id);
         pkg.isActive = isActive;
-        return this.packageRepository.save(pkg);
+        return this.activity.withHistory((manager) => manager.save(pkg), (saved) => ({
+            action: isActive ? 'package.activated' : 'package.deactivated', entityType: 'package', entityId: saved.id,
+            summary: `${isActive ? 'Turned on' : 'Turned off'} package ${saved.name}`,
+        }));
     }
 
     private async assertNameFree(name: string, exceptId?: string): Promise<void> {

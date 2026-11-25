@@ -11,6 +11,7 @@ import { PointLedger } from "src/points/entities/point-ledger.entity";
 import { AdvertiserProfile } from "src/advertiser-profile/entities/advertiser-profile.entity";
 import { MinioService } from "src/minio/minio.service";
 import { RegisterAdvertiserDTO } from "./dto/register-advertiser.dto";
+import { ActivityService } from "src/activity/activity.service";
 
 const DEFAULT_COUNTRY = 'Myanmar';
 const DEFAULT_TIMEZONE = 'Asia/Yangon';
@@ -18,6 +19,7 @@ const DEFAULT_TIMEZONE = 'Asia/Yangon';
 @Injectable()
 export class AdvertiserService {
     constructor(
+        private readonly activity: ActivityService,
         @InjectRepository(Advertiser)
         private advertiserRepository: Repository<Advertiser>,
         private readonly notificationService: NotificationService,
@@ -62,6 +64,11 @@ export class AdvertiserService {
                     timezone: dto.timezone || DEFAULT_TIMEZONE,
                     photo,
                 }));
+                await this.activity.record(manager, {
+                    action: 'advertiser.registered', entityType: 'advertiser', entityId: advertiser.id, advertiserId: advertiser.id,
+                    summary: `Signed up as ${advertiser.type === 'agency' ? 'an agency' : 'an advertiser'}`,
+                    actor: { type: 'advertiser', id: advertiser.id },
+                });
                 return { id: advertiser.id, name: advertiser.name, email: advertiser.email, type: advertiser.type };
             });
         } catch (error) {
@@ -86,7 +93,10 @@ export class AdvertiserService {
                 type: advertiserData.type,
                 agencyId: null,
             });
-            return await this.advertiserRepository.save(advertiser);
+            return await this.activity.withHistory((manager) => manager.save(advertiser), (saved) => ({
+                action: 'advertiser.created', entityType: 'advertiser', entityId: saved.id, advertiserId: saved.id,
+                summary: `Added ${saved.type === 'agency' ? 'agency' : 'advertiser'} ${saved.name}`,
+            }));
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
@@ -113,7 +123,11 @@ export class AdvertiserService {
                 verified: dto.verified,
                 password: dto.agencyId ? null : await hashPassword(dto.password!),
             });
-            return await this.advertiserRepository.save(advertiser);
+            return await this.activity.withHistory((manager) => manager.save(advertiser), (saved) => ({
+                action: 'advertiser.created', entityType: 'advertiser', entityId: saved.id, advertiserId: saved.id,
+                summary: `Added ${saved.agencyId ? 'agency client' : saved.type === 'agency' ? 'agency' : 'advertiser'} ${saved.name}`,
+                meta: saved.agencyId ? { agencyId: saved.agencyId } : null,
+            }));
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
@@ -131,7 +145,10 @@ export class AdvertiserService {
                 verified: true,
                 password: null,
             });
-            return await this.advertiserRepository.save(client);
+            return await this.activity.withHistory((manager) => manager.save(client), (saved) => ({
+                action: 'advertiser.created', entityType: 'advertiser', entityId: saved.id, advertiserId: saved.id,
+                summary: `Added client ${saved.name}`, meta: { agencyId },
+            }));
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
@@ -308,9 +325,20 @@ export class AdvertiserService {
             if (updateData.phone !== undefined) editable.phone = updateData.phone;
             if (updateData.status !== undefined) editable.status = updateData.status;
             if (updateData.verified !== undefined) editable.verified = updateData.verified;
-            if (updateData.password) editable.password = await hashPassword(updateData.password);
+            if (updateData.password) {
+                editable.password = await hashPassword(updateData.password);
+                editable.passwordChangedAt = new Date();
+            }
+            const before = { ...advertiser };
             Object.assign(advertiser, editable);
-            return await this.advertiserRepository.save(advertiser);
+            return await this.activity.withHistory((manager) => manager.save(advertiser), (saved) => {
+                // The password itself is never recorded, only that it changed.
+                const changes = this.activity.diff(before, saved, ['name', 'email', 'phone', 'status', 'verified']);
+                return Object.keys(changes).length || updateData.password ? {
+                    action: 'advertiser.updated', entityType: 'advertiser', entityId: saved.id, advertiserId: saved.id,
+                    summary: 'Details changed', changes, meta: updateData.password ? { passwordChanged: true } : null,
+                } : null;
+            });
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }
@@ -323,7 +351,10 @@ export class AdvertiserService {
                 throw new NotAcceptableException("Advertiser not found");
             }
             advertiser.verified = verified;
-            const advertiserData = await this.advertiserRepository.save(advertiser);
+            const advertiserData = await this.activity.withHistory((manager) => manager.save(advertiser), (saved) => ({
+                action: verified ? 'advertiser.verified' : 'advertiser.unverified', entityType: 'advertiser', entityId: saved.id, advertiserId: saved.id,
+                summary: verified ? 'Verified' : 'Marked as not verified',
+            }));
 
             this.notificationService.createNotification({
                 advertiserId: advertiserData.id,
@@ -343,8 +374,12 @@ export class AdvertiserService {
             if (!advertiser) {
                 throw new NotAcceptableException("Advertiser not found");
             }
+            const previousStatus = advertiser.status;
             advertiser.status = status;
-            const advertiserData = await this.advertiserRepository.save(advertiser);
+            const advertiserData = await this.activity.withHistory((manager) => manager.save(advertiser), (saved) => ({
+                action: status === 'active' ? 'advertiser.reactivated' : 'advertiser.deactivated', entityType: 'advertiser', entityId: saved.id, advertiserId: saved.id,
+                summary: status === 'active' ? 'Reactivated' : 'Deactivated', changes: { status: { from: previousStatus, to: status } },
+            }));
 
             this.notificationService.createNotification({
                 advertiserId: advertiserData.id,
@@ -373,7 +408,10 @@ export class AdvertiserService {
             if (pointsHistory > 0) {
                 throw new NotAcceptableException('This account has points history and cannot be deleted; deactivate it instead');
             }
-            return await this.advertiserRepository.remove(advertiser);
+            const { id: advertiserId, name } = advertiser;
+            return await this.activity.withHistory((manager) => manager.remove(advertiser), () => ({
+                action: 'advertiser.deleted', entityType: 'advertiser', entityId: advertiserId, advertiserId, summary: `Deleted ${name}`,
+            }));
         } catch (error) {
             throw new NotAcceptableException(error.message);
         }

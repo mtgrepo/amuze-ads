@@ -145,6 +145,23 @@ export class DailyAdStatsController {
         };
     }
 
+    @Get('admin/demographics')
+    async getDemographics(
+        @CurrentUser() user: CurrentUserPayload,
+        @Query('fromDate') fromDate?: string,
+        @Query('toDate') toDate?: string,
+        @Query('advertiserId') advertiserId?: string,
+        @Query('adId', new ParseUUIDPipe({ optional: true })) adId?: string,
+    ) {
+        const scope = await this.advertiserService.resolveListScope(user, advertiserId);
+        if (adId) await this.assertCanViewAd(user, adId);
+        const result = await this.dailyAdStatsService.getDemographics(fromDate, toDate, scope, adId);
+        return {
+            data: result,
+            message: 'Audience breakdown retrieved successfully',
+        };
+    }
+
     @Get('admin/by-advertiser')
     async getAdvertiserBreakdown(
         @CurrentUser() user: CurrentUserPayload,

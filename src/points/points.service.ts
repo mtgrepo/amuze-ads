@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { DataSource, EntityManager, Repository, Brackets } from "typeorm";
 import { Advertiser } from "src/advertisers/entities/advertiser.entity";
@@ -6,6 +6,32 @@ import { Transactions } from "src/transactions/entities/transaction.entity";
 import { DEFAULT_PAYMENT_METHOD, OFFLINE_PAYMENT_METHOD, TRANSACTION_REFERENCE } from "src/transactions/payment";
 import { PointLedger } from "./entities/point-ledger.entity";
 import type { PointLedgerType } from "./point-types";
+import { ActivityService } from "src/activity/activity.service";
+import { Campaign } from "src/campaigns/entities/campaign.entity";
+import { CampaignExtension } from "src/campaign-extensions/entities/campaign-extension.entity";
+import { AdminUser } from "src/admin-users/entities/admin-user.entity";
+
+/** One ledger entry with everything it links to, for the transaction detail page. */
+export interface LedgerEntryDetail {
+    entry: Omit<PointLedger, 'advertiser'> & { balanceBefore: number };
+    wallet: { id: string; name: string; type: string; email: string | null };
+    /** The money behind a purchase or paid top-up. */
+    payment: { id: string; paymentMethod: string; amount: number; createdAt: Date } | null;
+    /** The ad this paid for or refunded, directly or through an extension. adId opens the ad page. */
+    campaign: {
+        id: string; name: string; status: string; startDate: Date; endDate: Date;
+        packageName: string; packageQuantity: number; packageDays: number; totalBudget: number;
+        adId: string | null; advertiser: { id: string; name: string };
+    } | null;
+    extension: {
+        id: string; status: string; days: number; quantity: number; amount: number;
+        startDate: string; previousEndDate: string; newEndDate: string; createdAt: Date; reviewedAt: Date | null;
+    } | null;
+    /** Who made it. Admins only; customers never see admin names. */
+    admin: { id: string; name: string } | null;
+    /** Other entries for the same ad or extension, e.g. its payment and its refund. */
+    related: { id: string; type: PointLedgerType; amount: number; note: string | null; createdAt: Date }[];
+}
 
 export interface LedgerRef {
     referenceType?: string;
@@ -21,6 +47,7 @@ export interface LedgerRef {
 @Injectable()
 export class PointsService {
     constructor(
+        private readonly activity: ActivityService,
         @InjectRepository(PointLedger)
         private ledgerRepository: Repository<PointLedger>,
         @InjectRepository(Advertiser)
@@ -34,6 +61,10 @@ export class PointsService {
         return this.dataSource.transaction(async (manager) => {
             const entry = await this.credit(manager, walletId, amount, 'purchase', { note: `Bought with ${DEFAULT_PAYMENT_METHOD}` });
             await this.recordPayment(manager, entry, DEFAULT_PAYMENT_METHOD, TRANSACTION_REFERENCE.pointPurchase);
+            await this.activity.record(manager, {
+                action: 'points.purchased', entityType: 'points', entityId: entry.id, advertiserId: walletId,
+                summary: `Bought ${amount.toLocaleString('en-US')} points`, meta: { points: amount, method: DEFAULT_PAYMENT_METHOD, balanceAfter: Number(entry.balanceAfter) },
+            });
             return { balance: entry.balanceAfter, entry };
         });
     }
@@ -46,6 +77,11 @@ export class PointsService {
             if (kind === 'paid') {
                 await this.recordPayment(manager, entry, OFFLINE_PAYMENT_METHOD, TRANSACTION_REFERENCE.adminTopUp);
             }
+            await this.activity.record(manager, {
+                action: 'points.added', entityType: 'points', entityId: entry.id, advertiserId: walletId,
+                summary: `Added ${amount.toLocaleString('en-US')} ${kind === 'bonus' ? 'bonus ' : ''}points`,
+                meta: { points: amount, kind, note, balanceAfter: Number(entry.balanceAfter) },
+            });
             return { balance: entry.balanceAfter, entry };
         });
     }
@@ -152,6 +188,84 @@ export class PointsService {
             .where('advertiser.agencyId IS NULL')
             .getRawOne();
         return { totalBalance: Number(row?.total ?? 0), entries };
+    }
+
+    /**
+     * One entry and what it links to. With walletId (a customer), only that wallet's entries are found, and the
+     * admin who made it is left out.
+     */
+    async getEntryDetail(id: string, walletId?: string): Promise<LedgerEntryDetail> {
+        const found = await this.ledgerRepository.findOne({
+            where: walletId ? { id, advertiserId: walletId } : { id },
+            relations: { advertiser: true },
+            select: { advertiser: { id: true, name: true, type: true, email: true } },
+        });
+        if (!found) {
+            throw new NotFoundException('Transaction not found');
+        }
+        const { advertiser, ...entry } = found;
+
+        let payment: LedgerEntryDetail['payment'] = null;
+        let campaignId: string | null = null;
+        let extension: LedgerEntryDetail['extension'] = null;
+        if (entry.referenceType === 'transaction' && entry.referenceId) {
+            const t = await this.dataSource.getRepository(Transactions).findOne({ where: { id: entry.referenceId } });
+            if (t) payment = { id: t.id, paymentMethod: t.paymentMethod, amount: Number(t.amount), createdAt: t.createdAt };
+        } else if (entry.referenceType === 'campaign') {
+            campaignId = entry.referenceId;
+        } else if (entry.referenceType === 'campaign_extension' && entry.referenceId) {
+            const e = await this.dataSource.getRepository(CampaignExtension).findOne({ where: { id: entry.referenceId } });
+            if (e) {
+                campaignId = e.campaignId;
+                extension = {
+                    id: e.id, status: e.status, days: e.days, quantity: e.quantity, amount: Number(e.amount),
+                    startDate: e.startDate, previousEndDate: e.previousEndDate, newEndDate: e.newEndDate,
+                    createdAt: e.createdAt, reviewedAt: e.reviewedAt,
+                };
+            }
+        }
+
+        let campaign: LedgerEntryDetail['campaign'] = null;
+        if (campaignId) {
+            // The ad may have been deleted since; the entry still shows its name from the note.
+            const c = await this.dataSource.getRepository(Campaign).findOne({
+                where: { id: campaignId },
+                relations: { advertiser: true },
+                select: { advertiser: { id: true, name: true } },
+            });
+            if (c) {
+                const [ad]: { id: string }[] = await this.dataSource.query(
+                    `SELECT a.id FROM ads a JOIN ad_sets s ON s.id = a.ad_set_id WHERE s.campaign_id = $1 ORDER BY a.created_at LIMIT 1`,
+                    [c.id],
+                );
+                campaign = {
+                    id: c.id, name: c.name, status: c.status, startDate: c.startDate, endDate: c.endDate,
+                    packageName: c.packageName, packageQuantity: c.packageQuantity, packageDays: c.packageDays,
+                    totalBudget: Number(c.totalBudget), adId: ad?.id ?? null,
+                    advertiser: { id: c.advertiser.id, name: c.advertiser.name },
+                };
+            }
+        }
+
+        let admin: LedgerEntryDetail['admin'] = null;
+        if (!walletId && entry.createdByAdminId) {
+            const a = await this.dataSource.getRepository(AdminUser).findOne({ where: { id: entry.createdByAdminId }, select: ['id', 'name'] });
+            admin = a ? { id: a.id, name: a.name } : { id: entry.createdByAdminId, name: 'Removed admin' };
+        }
+
+        // A purchase's transaction belongs to that entry alone, so only ads and extensions have related entries.
+        const related = entry.referenceId && entry.referenceType !== 'transaction'
+            ? (await this.ledgerRepository.find({
+                where: { referenceType: entry.referenceType!, referenceId: entry.referenceId, advertiserId: entry.advertiserId },
+                order: { createdAt: 'ASC' },
+            })).filter((r) => r.id !== entry.id).map((r) => ({ id: r.id, type: r.type, amount: Number(r.amount), note: r.note, createdAt: r.createdAt }))
+            : [];
+
+        return {
+            entry: { ...entry, balanceBefore: Number(entry.balanceAfter) - Number(entry.amount) },
+            wallet: { id: advertiser.id, name: advertiser.name, type: advertiser.type, email: advertiser.email },
+            payment, campaign, extension, admin, related,
+        };
     }
 
     async getWallet(walletId: string): Promise<{ balance: number; history: PointLedger[] }> {
